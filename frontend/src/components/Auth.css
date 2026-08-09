@@ -1,0 +1,125 @@
+.auth-container {
+  max-width: 400px;
+  margin: 50px auto;
+  padding: 30px;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background-color: #ffffff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #333;
+}
+
+.auth-container h2 {
+  text-align: center;
+  color: #007bff;
+  margin-bottom: 30px;
+  font-size: 2em;
+  font-weight: 600;
+}
+
+.auth-form .form-group {
+  margin-bottom: 20px;
+}
+
+.auth-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #555;
+  font-size: 0.95em;
+}
+
+.auth-form input[type="email"],
+.auth-form input[type="password"] {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1em;
+  box-sizing: border-box; /* Ensures padding doesn't increase width */
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.auth-form input[type="email"]:focus,
+.auth-form input[type="password"]:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+  outline: none;
+}
+
+.auth-button {
+  background-color: #007bff;
+  color: white;
+  padding: 12px 25px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.1em;
+  font-weight: 500;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 15px;
+}
+
+.auth-button:hover {
+  background-color: #0056b3;
+  transform: translateY(-2px);
+}
+
+.auth-button:active {
+  transform: translateY(0);
+}
+
+.toggle-auth {
+  text-align: center;
+  margin-top: 25px;
+  font-size: 0.9em;
+  color: #666;
+}
+
+.toggle-auth .toggle-button {
+  background: none;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  font-size: 1em;
+  text-decoration: underline;
+  margin-left: 5px;
+  padding: 0;
+  transition: color 0.3s ease;
+}
+
+.toggle-auth .toggle-button:hover {
+  color: #0056b3;
+}
+
+.message {
+  padding: 10px;
+  margin-bottom: 15px;
+  border-radius: 5px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.message.error {
+  background-color: #ffe0e0;
+  color: #cc0000;
+  border: 1px solid #cc0000;
+}
+
+.message.success {
+  background-color: #e0ffe0;
+  color: #008000;
+  border: 1px solid #008000;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 600px) {
+  .auth-container {
+    margin: 20px 10px;
+    padding: 20px;
+  }
+}
+

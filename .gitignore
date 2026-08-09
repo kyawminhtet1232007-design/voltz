@@ -1,0 +1,32 @@
+# ── Dependencies ─────────────────────────────
+node_modules/
+**/node_modules/
+
+# ── Secrets / env (NEVER commit — repo is public) ──
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+
+# ── Build output ─────────────────────────────
+dist/
+build/
+**/dist/
+**/build/
+.vercel/
+
+# ── Accidental 362MB Oracle JDK committed into the React tree ──
+frontend/src/components/oracleJdk-25.jdk/
+
+# ── Logs / OS / editor cruft ─────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

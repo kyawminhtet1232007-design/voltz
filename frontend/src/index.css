@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Apple design language base (see lib/theme.js APPLE tokens):
+   SF Pro via the system stack, antialiased, tight display tracking. */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3 {
+  letter-spacing: -0.015em; /* Apple display type is tighter than the default */
+}
+
+/* Voltz brand wordmark — bold display font (Sora) for a logo feel, not nav text. */
+.brand-wordmark {
+  font-family: "Sora", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+/* Voltz launcher halo — slow breathing glow (premium “you can tap me” cue),
+   replaces the harsh animate-ping blink. Two rings slightly out of phase. */
+@keyframes voltBreathe {
+  0%, 100% { transform: scale(1);    opacity: 0.45; }
+  50%      { transform: scale(1.28); opacity: 0.10; }
+}
+.volt-halo, .volt-halo2 {
+  position: absolute; inset: 0; border-radius: 9999px; pointer-events: none;
+  background: radial-gradient(circle, rgba(220,38,38,0.55) 0%, rgba(220,38,38,0.22) 55%, rgba(220,38,38,0) 75%);
+  animation: voltBreathe 3.2s ease-in-out infinite;
+}
+.volt-halo2 { animation-delay: -1.6s; animation-duration: 4.4s; }
+@media (prefers-reduced-motion: reduce) {
+  .volt-halo, .volt-halo2 { animation: none; opacity: 0.25; }
+}
+
+/* Voltz Library guide body — every top-level content block inside a guide is its
+   own bordered card (the flat text sheet read as dead). The first card carries the
+   guide's accent as a top rule; intro paragraphs get a quiet accent-tinted lede card. */
+.guide-body > div > div {
+  background: #ffffff;
+  border: 1px solid #e7e7ee;
+  border-radius: 20px;
+  padding: 1.4rem 1.6rem;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+.guide-body > div > div:hover {
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.07);
+  transform: translateY(-2px);
+}
+.guide-body > div > div:first-child {
+  border-top: 3px solid var(--guide-accent, #dc2626);
+}
+.guide-body > div > p {
+  background: #ffffff;
+  border: 1px solid #e7e7ee;
+  border-radius: 20px;
+  padding: 1.25rem 1.5rem;
+}
+
+/* Voltz Library — list rows inside a guide card. The old look was a hairline
+   divider (border-b border-gray-100) which read as unbounded text; promote every
+   such row to its own soft panel so each fact has a visible boundary. */
+.guide-body div[class*="border-gray-100"][class*="last:border-0"] {
+  background: #fafafc;
+  border: 1px solid #e9e9ef;
+  border-radius: 12px;
+  padding: 0.7rem 0.95rem;
+  margin-bottom: 0.55rem;
+  transition: border-color 0.25s ease, background 0.25s ease;
+}
+.guide-body div[class*="border-gray-100"][class*="last:border-0"]:last-child {
+  margin-bottom: 0;
+}
+.guide-body div[class*="border-gray-100"][class*="last:border-0"]:hover {
+  border-color: #d9d9e3;
+  background: #f6f6fa;
+}
+/* Rows nested inside an already-tinted two-column panel flip to white so they
+   still read as bounded against the #fafafc panel behind them. */
+.guide-body div[class*="sm:grid-cols-2"] > div div[class*="border-gray-100"][class*="last:border-0"] {
+  background: #ffffff;
+}
+
+/* Voltz Library — two-column text groups inside a guide card get their own soft
+   inner panels so no column of text floats unbounded. */
+.guide-body div[class*="sm:grid-cols-2"] {
+  gap: 1.1rem;
+}
+.guide-body div[class*="sm:grid-cols-2"] > div {
+  background: #fafafc;
+  border: 1px solid #ececf1;
+  border-radius: 14px;
+  padding: 1rem 1.15rem;
+}
+
+/* Voltz Library — guide photos drift slowly (Ken Burns) so the panel feels alive. */
+@keyframes caKenBurns {
+  0%   { transform: scale(1.06) translate(0, 0); }
+  50%  { transform: scale(1.14) translate(-1.5%, -1.5%); }
+  100% { transform: scale(1.06) translate(0, 0); }
+}
+.ca-kenburns { animation: caKenBurns 18s ease-in-out infinite; will-change: transform; }
+@media (prefers-reduced-motion: reduce) { .ca-kenburns { animation: none; transform: scale(1.06); } }
+
+/* Voltz Library — animated guide art (ChapterArt). Slow, subtle, reduced-motion safe. */
+.ca-spin, .ca-spin-rev, .ca-pulse, .ca-float, .ca-blink, .ca-dash {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes caSpin { to { transform: rotate(360deg); } }
+.ca-spin     { animation: caSpin 12s linear infinite; }
+.ca-spin-rev { animation: caSpin 9s linear infinite reverse; }
+@keyframes caPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: 0.6; } }
+.ca-pulse { animation: caPulse 3.2s ease-in-out infinite; }
+@keyframes caFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.ca-float { animation: caFloat 3.4s ease-in-out infinite; }
+@keyframes caBlink { 0%, 55% { opacity: 1; } 60%, 100% { opacity: 0; } }
+.ca-blink { animation: caBlink 1.1s steps(1) infinite; }
+@keyframes caDash { to { stroke-dashoffset: -52; } }
+.ca-dash { animation: caDash 2.6s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ca-spin, .ca-spin-rev, .ca-pulse, .ca-float, .ca-blink, .ca-dash { animation: none; }
+}
+
+/* Dashboard data-viz — line draws itself in, fills/dots fade up after it. */
+@keyframes dvDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.dv-draw { stroke-dasharray: 1; animation: dvDraw 1.1s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes dvFade { from { opacity: 0; } to { opacity: 1; } }
+.dv-fade { animation: dvFade 0.5s ease 0.5s both; }
+@media (prefers-reduced-motion: reduce) {
+  .dv-draw, .dv-fade { animation: none; }
+}
+
+/* Lesson section index — showy red number with a slow gradient shimmer sweep. */
+@keyframes lessonIndexShimmer {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: -200% 50%; }
+}
+.lesson-index {
+  background-image: linear-gradient(100deg, #b91c1c 0%, #dc2626 18%, #ff6b6b 34%, #dc2626 50%, #b91c1c 72%, #dc2626 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: lessonIndexShimmer 3.5s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lesson-index { animation: none; background-position: 0 50%; }
+}
