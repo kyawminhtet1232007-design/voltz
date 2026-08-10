@@ -12266,14 +12266,13 @@ function VexLearningHubInner() {
     return () => window.removeEventListener("voltz-open-auth", open);
   }, []);
 
+  // useTransition (not bare startTransition) so we get `isPending` — true while a
+  // heavy page (CodeLab's Monaco editor, CAD's three.js) is mounting. We surface
+  // that as a branded loader so the click feels responsive instead of frozen.
+  const [isPending, startTransition] = React.useTransition();
   const navigate = (page) => {
     setNavPage(page);
-    // startTransition keeps the click responsive: mounting a heavy page (Lessons
-    // photos, CodeLab's Monaco, CAD's three.js) renders concurrently instead of
-    // blocking the main thread for the whole mount. Scroll-to-top happens in
-    // <ScrollFx>'s layout effect at commit — scrolling here would visibly yank
-    // the OLD page to the top before the new one appears.
-    React.startTransition(() => {
+    startTransition(() => {
       // Clicking "Lessons" always returns to the lesson overview. Lessons keeps an
       // internal selected-lesson state, and re-clicking the tab while already on it
       // wouldn't change currentPage — so bump a key to remount Lessons and drop the
@@ -12282,6 +12281,8 @@ function VexLearningHubInner() {
       setCurrentPage(page);
     });
   };
+  // Only the two genuinely heavy pages warrant a loading veil.
+  const heavyLoading = isPending && (navPage === "codelab" || navPage === "cad");
 
   return (
     <div className="font-sans overflow-x-hidden">
@@ -12305,6 +12306,19 @@ function VexLearningHubInner() {
       {/* Google One Tap inline account picker + engagement-triggered nudge */}
       <GoogleOneTap />
       <SignInPrompt />
+
+      {/* Loading veil while a heavy page (Code Lab editor / CAD 3D engine) mounts */}
+      {heavyLoading && (
+        <div className="fixed inset-0 z-[120] flex flex-col items-center justify-center gap-4"
+          style={{ background: "rgba(13,17,23,0.85)", backdropFilter: "blur(6px)" }}>
+          <div className="w-16 h-16 rounded-full overflow-hidden" style={{ animation: "floatIdleSpin 1.4s ease-in-out infinite", background: "radial-gradient(circle at 50% 32%, #2b2e35, #141519)" }}>
+            <VoltLogo size={64} />
+          </div>
+          <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.72)" }}>
+            {navPage === "cad" ? "Warming up the 3D studio…" : "Loading the code editor…"}
+          </p>
+        </div>
+      )}
 
       <PageTransition pageKey={currentPage}>
         {currentPage === "home"      && <Home setCurrentPage={navigate} />}
