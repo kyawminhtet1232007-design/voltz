@@ -6745,9 +6745,11 @@ function CAD() {
 
   return (
     /* Full-viewport canvas with floating overlay panels.
-       top offset matches the Apple nav exactly (57px mobile / 65px desktop)
-       — set via classes (style must omit `top` so the classes can apply). */
-    <div className="top-[57px] lg:top-[65px]"
+       top offset clears the Apple nav (~66px mobile / ~72px desktop — the nav is
+       VoltLogo 38px + py-3.5/4, taller than the old 57/65 assumption, which is
+       why the toolbar was hidden under it) — set via classes (style must omit
+       `top` so the classes can apply). */
+    <div className="top-[66px] lg:top-[72px]"
       style={{ position: "fixed", left: 0, right: 0, bottom: 0, overflow: "hidden", zIndex: 1 }}>
 
       {/* ══ FULL-SCREEN CANVAS — back layer ══ */}
