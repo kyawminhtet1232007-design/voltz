@@ -6869,11 +6869,12 @@ function CAD() {
         </div>
       </aside>
 
-      {/* ══ FLOATING TOP BAR ══ */}
+      {/* ══ FLOATING TOP BAR ══ (sits a touch below the top edge with a taller
+           bar so the title isn't cramped against the nav) */}
       <div
-        className="absolute top-0 flex items-center gap-3 px-4 z-10"
+        className="absolute top-3 flex items-center gap-3 px-4 z-10"
         style={{
-          left: "13rem", right: "14rem", height: "2.6rem",
+          left: "13rem", right: "14rem", height: "3.1rem",
           background: "rgba(8,10,16,0.82)", backdropFilter: "blur(14px)",
           borderBottom: "1px solid rgba(255,255,255,0.07)",
         }}
