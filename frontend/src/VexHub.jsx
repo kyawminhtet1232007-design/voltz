@@ -12149,7 +12149,7 @@ Formatting rules (ALWAYS follow):
             ))}
             {loading && (
               <div className="flex items-end gap-2 justify-start">
-                <div className="w-6 h-6 rounded-full bg-red-700 flex items-center justify-center text-white text-xs font-bold shrink-0">R</div>
+                <div className="w-6 h-6 rounded-full flex items-center justify-center overflow-hidden shrink-0 ring-1 ring-black/5"><VoltLogo size={24} /></div>
                 <div className="rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1 items-center"
                   style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.08)" }}>
                   <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-bounce" style={{animationDelay:"0ms"}} />
