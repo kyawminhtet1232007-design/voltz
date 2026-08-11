@@ -69,7 +69,16 @@ export function prefersReducedMotion() {
 // like background/border/boxShadow, which made revealed cards lose their box.
 function fromSafe(target, vars) {
   gsap.set(target, { transition: "none" });
-  return gsap.from(target, { ...vars, clearProps: "opacity,transform,transition" });
+  // `gsap.from` applies the hidden start-state immediately (immediateRender). If
+  // the tween is then KILLED before it finishes — React StrictMode double-invoking
+  // the effect in dev, a fast re-navigation, a context revert mid-flight — the
+  // element can be stranded at opacity:0. onInterrupt clears the props so an
+  // interrupted reveal always falls back to its natural (visible) state.
+  return gsap.from(target, {
+    ...vars,
+    clearProps: "opacity,transform,transition",
+    onInterrupt: () => gsap.set(target, { clearProps: "opacity,transform,transition" }),
+  });
 }
 
 // Scan `root` for [data-reveal] + [data-parallax] elements and attach their
@@ -90,37 +99,41 @@ export function initScrollFx(root = document) {
 
   const vh = (typeof window !== "undefined" && window.innerHeight) || 800;
   let immediate = 0, deferred = 0;
+  const immediateEls = []; // in-view reveals, swept below if a tween is stranded
 
   const ctx = gsap.context(() => {
-    const animate = (el, fast = false) => {
+    // Page-switch entrance: the in-view blocks cascade in one after another so a
+    // tab click reads as a smooth ~1s reveal, not an instant snap. `order` is the
+    // element's position among the in-view set, used to stagger its start.
+    const animate = (el, order = null) => {
       const variant = el.dataset.reveal || "up";
       // "stagger" animates the element's CHILDREN as a cascade.
       const target = variant === "stagger" ? Array.from(el.children) : el;
       if (variant === "stagger" && !el.children.length) return;
       const vars = revealVars(variant, el.dataset.revealDelay);
-      if (fast) {
-        // Page-switch entrance: already-visible content must not sit ghosted
-        // behind slow fades (it reads as lag on tab clicks). Quick + subtle;
-        // the full 0.7s reveal stays for below-fold elements entering on scroll.
-        vars.duration = 0.3;
-        vars.delay = Math.min(vars.delay, 0.08);
-        if (vars.y) vars.y = Math.min(vars.y, 14);
-        if (vars.x) vars.x = Math.sign(vars.x) * 14;
-        if (vars.stagger) vars.stagger = 0.04;
+      if (order != null) {
+        // Deliberate, smooth entrance — softly eased, gently cascaded, capped so
+        // the whole page still finishes revealing within ~1s. Pre-paint hides
+        // these before first paint (layout effect) so there's no flash.
+        vars.duration = 0.7;
+        vars.ease = "power3.out";
+        vars.delay = Math.min((vars.delay || 0) + order * 0.08, 0.6);
       }
       fromSafe(target, vars);
     };
 
+    let inView = 0;
     reveals.forEach((el) => {
       // Same threshold as the trigger's start ("top 88%"): in-view elements
-      // play a FAST entrance right now, everything else waits for scroll.
+      // cascade in now, everything else waits for scroll.
       if (el.getBoundingClientRect().top < vh * 0.88) {
         immediate++;
-        animate(el, true);
+        immediateEls.push(el);
+        animate(el, inView++); // cascade in, ordered by position
         return;
       }
       deferred++;
-      ScrollTrigger.create({ trigger: el, start: "top 88%", once: true, onEnter: () => animate(el) });
+      ScrollTrigger.create({ trigger: el, start: "top 88%", once: true, onEnter: () => animate(el) }); // full reveal on scroll
     });
 
     // Parallax: drift the element up N% of its own height while it crosses the
@@ -152,8 +165,24 @@ export function initScrollFx(root = document) {
     });
   });
 
+  // Safety sweep OUTSIDE the gsap context (a plain timer, so context.revert()
+  // can't kill it): after the cascade should be done, force visible any in-view
+  // element still stranded at opacity:0 by a killed from-tween (StrictMode double
+  // invoke, fast re-navigation). Cleared on cleanup so it never fires post-unmount.
+  let sweepId = 0;
+  if (immediateEls.length) {
+    sweepId = setTimeout(() => {
+      immediateEls.forEach((el) => {
+        const nodes = el.dataset.reveal === "stagger" ? Array.from(el.children) : [el];
+        nodes.forEach((n) => {
+          if (n && getComputedStyle(n).opacity === "0") gsap.set(n, { clearProps: "opacity,transform,transition" });
+        });
+      });
+    }, 1500);
+  }
+
   fxLog.debug("scroll fx attached", { immediate, deferred, parallax: parallaxe.length });
-  return () => ctx.revert();
+  return () => { clearTimeout(sweepId); ctx.revert(); };
 }
 
 // Gentle infinite idle bob for a floating element (e.g. the chat launcher) so it
@@ -192,11 +221,12 @@ export function ScrollFx({ pageKey }) {
 // page style-free afterwards. Fail-safe: the element is never pre-hidden.
 export function animatePageEnter(el) {
   if (!el || prefersReducedMotion()) return null;
-  // Quick: this fade stacks with the per-element reveals playing inside the
-  // page, so anything slower reads as the page "lagging" after a tab click.
+  // A soft, deliberate page rise+fade that reads as a smooth transition. The
+  // per-element reveals cascade in on top of it (see initScrollFx); together
+  // they give a ~1s smooth entrance. Pre-paint (layout effect) means no flash.
   return gsap.fromTo(el,
-    { opacity: 0, y: 10 },
-    { opacity: 1, y: 0, duration: 0.22, ease: "power2.out", clearProps: "all" });
+    { opacity: 0, y: 18 },
+    { opacity: 1, y: 0, duration: 0.55, ease: "power3.out", clearProps: "all" });
 }
 
 // Cascade a container's children in — used when tab panels swap content.
