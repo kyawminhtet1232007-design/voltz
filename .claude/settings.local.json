@@ -177,7 +177,24 @@
       "Bash(git init *)",
       "Bash(git config *)",
       "Bash(git add *)",
-      "Bash(xargs -0 du -ch)"
+      "Bash(xargs -0 du -ch)",
+      "Bash(git commit -q -m 'Voltz: current build — VEX learning platform \\(lessons, Team HQ dashboard, Code Lab, CAD, chat, Google auth, analytics\\) *)",
+      "Bash(git branch *)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "Bash(brew install *)",
+      "Bash(gh --version)",
+      "Bash(/opt/homebrew/bin/gh --version)",
+      "WebFetch(domain:voltz-ten.vercel.app)",
+      "Bash(git commit -q -m 'Fix: chat loading avatar uses Volt logo instead of leftover '\\\\''R'\\\\'' *)",
+      "Bash(awk '/^function Nav\\\\\\(/{p=1} p{print NR\": \"$0} /return \\\\\\(/{if\\(p\\)c++} c>0 && /className/{n++} n>3{exit}' src/VexHub.jsx)",
+      "Bash(awk '{print $5, $9}')",
+      "Bash(python3 -m pip install --quiet --break-system-packages Pillow)",
+      "Bash(python3 -c \"import PIL; print\\('PIL', PIL.__version__\\)\")",
+      "Bash(curl -sI \"https://voltz-ten.vercel.app/volt.png\")",
+      "Bash(awk '{print $5\" bytes\"}')",
+      "Bash(awk -F: '$1>9273 && $1<9980')",
+      "Bash(git commit -q -m 'Community: account-based identity + one-time username prompt *)"
     ]
   }
 }

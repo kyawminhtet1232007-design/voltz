@@ -288,6 +288,15 @@ function AuthProvider({ children }) {
 }
 function useAuth() { return React.useContext(AuthCtx); }
 
+// One canonical display identity for a signed-in user: the username they chose
+// (stored in user_metadata), falling back to their Google name, then the email
+// local-part. Used by the Nav corner AND the Community chat so identity is one
+// thing everywhere — never the raw email.
+function userDisplayName(user) {
+  const m = user?.user_metadata || {};
+  return m.username || m.chat_name || m.full_name || m.name || (user?.email ? user.email.split("@")[0] : "");
+}
+
 // ---------- DATA ----------
 const lessons = [
   {
@@ -3643,6 +3652,54 @@ function GoogleOneTap() {
 // visitor has actually explored (time on site + scroll depth), is dismissible,
 // and won't reappear for days (cooldown). Signed-in users never see it. All
 // thresholds + the decision live in lib/analytics.js (pure + tested).
+// One-time username prompt shown right after a user signs in without a username
+// set. The chosen name becomes their identity everywhere — the Nav corner (in
+// place of their email) and the Community chat — so they can never be confused
+// with, or impersonated by, anyone else. Saved to the account (user_metadata).
+function UsernameSetup() {
+  const { user } = useAuth() || {};
+  const needsUsername = !!user && !(user.user_metadata?.username);
+  const [name, setName]     = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+  const [err, setErr]       = React.useState("");
+  React.useEffect(() => {
+    if (needsUsername) setName(userDisplayName(user)); // suggest from Google name / email
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsUsername, user?.id]);
+  if (!needsUsername) return null;
+  const save = async () => {
+    const clean = name.trim().replace(/\s+/g, " ");
+    if (clean.length < 2) { setErr("Pick a username (at least 2 characters)."); return; }
+    setSaving(true);
+    const { error } = await getSB().auth.updateUser({ data: { username: clean, chat_name: clean } });
+    setSaving(false);
+    if (error) { setErr(error.message || "Could not save — try again."); return; }
+    try { localStorage.setItem("chat_name", clean); } catch { /* ignore */ }
+    // AuthProvider's onAuthStateChange updates `user` → needsUsername flips false → this hides.
+  };
+  return (
+    <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-8">
+        <div className="w-14 h-14 rounded-full overflow-hidden mx-auto mb-4" style={{ background: "radial-gradient(circle at 50% 32%, #2b2e35, #141519)" }}>
+          <VoltLogo size={56} />
+        </div>
+        <h3 className="text-xl font-semibold tracking-tight text-center mb-1.5" style={{ color: "#1d1d1f" }}>Pick your username</h3>
+        <p className="text-sm text-center leading-relaxed mb-5" style={{ color: "#6e6e73" }}>
+          This is how you'll show up across Voltz — in the top corner and in the Community. Not your email, and no one else can use it as you.
+        </p>
+        <input value={name} onChange={(e) => { setName(e.target.value); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && save()}
+          placeholder="e.g. RyanBuilds" autoFocus maxLength={24}
+          className="w-full rounded-xl px-4 py-3 text-sm text-gray-900 outline-none" style={LIGHT_CARD} />
+        {err && <p className="text-red-500 text-xs mt-2">{err}</p>}
+        <button onClick={save} disabled={saving}
+          className="mt-4 w-full py-3 rounded-xl text-white font-bold text-sm transition hover:opacity-90 disabled:opacity-60" style={{ background: "#dc2626" }}>
+          {saving ? "Saving…" : "Set username"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SignInPrompt() {
   const { user } = useAuth();
   const [show, setShow]   = React.useState(false);
@@ -3780,7 +3837,8 @@ function Nav({ currentPage, setCurrentPage, onSignIn }) {
     { label: "Community",  page: "community" },
   ];
 
-  const initials = user?.email ? user.email.slice(0,2).toUpperCase() : "?";
+  const displayName = userDisplayName(user);
+  const initials = displayName ? displayName.slice(0,2).toUpperCase() : "?";
 
   return (
     /* Apple-style nav: single consistent frosted graphite bar on every page */
@@ -3810,14 +3868,14 @@ function Nav({ currentPage, setCurrentPage, onSignIn }) {
             <button onClick={()=>setUserMenuOpen(o=>!o)}
               className="flex items-center gap-2.5 px-3 py-2 rounded-2xl transition hover:bg-white/10">
               <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center text-white text-xs font-black">{initials}</div>
-              <span className="text-sm text-gray-200 max-w-[120px] truncate">{user.email}</span>
+              <span className="text-sm text-gray-200 max-w-[120px] truncate">{displayName}</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6"/></svg>
             </button>
             {userMenuOpen && (
               <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-xl overflow-hidden z-50 border border-gray-100">
                 <div className="px-4 py-3 border-b border-gray-100">
-                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Signed in as</p>
-                  <p className="text-gray-900 text-sm font-bold truncate mt-0.5">{user.email}</p>
+                  <p className="text-gray-900 text-sm font-bold truncate">{displayName}</p>
+                  <p className="text-gray-400 text-xs truncate mt-0.5">{user.email}</p>
                 </div>
                 <button onClick={()=>{signOut();setUserMenuOpen(false);}}
                   className="w-full text-left px-4 py-3 text-sm text-red-600 font-semibold hover:bg-red-50 transition">
@@ -3862,7 +3920,7 @@ function Nav({ currentPage, setCurrentPage, onSignIn }) {
           {user ? (
             <button onClick={()=>{signOut();setMenuOpen(false);}}
               className="mt-3 border border-white/20 py-3 rounded-xl font-semibold text-gray-300 transition hover:bg-white/10">
-              Sign Out ({user.email})
+              Sign Out ({displayName})
             </button>
           ):(
             <button onClick={()=>{onSignIn();setMenuOpen(false);}}
@@ -8997,11 +9055,13 @@ function NameColorFields({ name, setName, col, setCol, onSubmit }) {
 }
 
 // ── SetupScreen ───────────────────────────────────────────────────────────
-function SetupScreen({ onSetup, error, darkMode, toggleTheme }) {
+function SetupScreen({ onSetup, error, darkMode, toggleTheme, defaultName }) {
   const [tab,        setTab]        = React.useState("community"); // "community" | "team"
   const [teamMode,   setTeamMode]   = React.useState("create");    // "create" | "join"
   const [serverCode, setServerCode] = React.useState("");
-  const [name,       setName]       = React.useState(localStorage.getItem("chat_name") || "");
+  // Default the display name from the signed-in account (their saved chat name or
+  // Google name / email), so identity is anchored to the account, not typed fresh.
+  const [name,       setName]       = React.useState(localStorage.getItem("chat_name") || defaultName || "");
   const [col,        setCol]        = React.useState(localStorage.getItem("chat_color") || CHAT_COLORS[3]);
   const [localErr,   setLocalErr]   = React.useState("");
 
@@ -9271,6 +9331,24 @@ function MessageRow({ msg, sameUser, isMine, onDelete, onJoinCall }) {
 // ── TeamChat ──────────────────────────────────────────────────────────────
 const chatLog = createLogger("chat");
 function TeamChat() {
+  // Chat identity is now anchored to the signed-in account (Supabase Auth) — no
+  // more free-for-all names where anyone could pick any identity. You must sign
+  // in, and your display name + color live in your account (user_metadata),
+  // synced to localStorage (which the rest of the chat reads) as the source of
+  // truth. A returning user keeps the same identity on every device/login.
+  const { user } = useAuth() || {};
+  const accountName = userDisplayName(user); // same identity shown in the Nav
+  React.useEffect(() => {
+    if (!user) return;
+    const m = user.user_metadata || {};
+    const nm = m.username || m.chat_name;
+    if (nm) {
+      // Account is the source of truth — overwrite any locally-edited name.
+      localStorage.setItem("chat_name", nm);
+      if (m.chat_color) localStorage.setItem("chat_color", m.chat_color);
+    }
+  }, [user?.id]);
+
   const [error,      setError]      = React.useState("");
   const [ready,      setReady]      = React.useState(()=> !!(localStorage.getItem("chat_name") && localStorage.getItem("chat_server_id")));
   const [serverId,   setServerId]   = React.useState(()=> localStorage.getItem("chat_server_id") || "");
@@ -9367,6 +9445,10 @@ function TeamChat() {
     localStorage.setItem("chat_server_name", sn);
     localStorage.setItem("chat_name",  name.trim());
     localStorage.setItem("chat_color", color);
+    // Persist the identity to the signed-in account so it follows the user across
+    // devices/logins and is the source of truth (fire-and-forget, guarded).
+    getSB()?.auth.updateUser({ data: { chat_name: name.trim(), chat_color: color } })
+      .catch((e) => chatLog.warn("could not save chat identity to account", { msg: e?.message }));
     setServerId(sid);
     setServerName(sn);
     setError("");
@@ -9881,9 +9963,30 @@ function TeamChat() {
     setMessages([]);
   };
 
+  // Gate: the Community requires a signed-in account (one account = one identity).
+  if (!user) return (
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: LIGHT_PAGE_BG }}>
+      <div className="w-full max-w-sm bg-white rounded-3xl p-8 text-center" style={{ boxShadow: "0 24px 60px rgba(0,0,0,0.10)", border: "1px solid #ececf1" }}>
+        <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-4" style={{ background: "radial-gradient(circle at 50% 32%, #2b2e35, #141519)" }}>
+          <VoltLogo size={64} />
+        </div>
+        <h2 className="text-xl font-semibold tracking-tight mb-1.5" style={{ color: "#1d1d1f" }}>Join the Community</h2>
+        <p className="text-sm leading-relaxed mb-6" style={{ color: "#6e6e73" }}>
+          Sign in to chat with other VEX teams. Your account is your identity here — no one can post as you.
+        </p>
+        <GoogleButton />
+        <button onClick={() => window.dispatchEvent(new CustomEvent("voltz-open-auth"))}
+          className="w-full mt-2.5 py-3 rounded-xl text-sm font-semibold transition hover:bg-gray-50"
+          style={{ border: "1px solid #dcdce3", color: "#1d1d1f", background: "#fff" }}>
+          Sign in with email
+        </button>
+      </div>
+    </div>
+  );
+
   if (!ready) return (
     <ChatThemeCtx.Provider value={darkMode}>
-      <SetupScreen onSetup={handleSetup} error={error} darkMode={darkMode} toggleTheme={toggleTheme}/>
+      <SetupScreen onSetup={handleSetup} error={error} darkMode={darkMode} toggleTheme={toggleTheme} defaultName={accountName}/>
     </ChatThemeCtx.Provider>
   );
 
@@ -12306,6 +12409,7 @@ function VexLearningHubInner() {
       {/* Google One Tap inline account picker + engagement-triggered nudge */}
       <GoogleOneTap />
       <SignInPrompt />
+      <UsernameSetup />
 
       {/* Loading veil while a heavy page (Code Lab editor / CAD 3D engine) mounts */}
       {heavyLoading && (
