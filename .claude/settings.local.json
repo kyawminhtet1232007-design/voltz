@@ -194,7 +194,9 @@
       "Bash(curl -sI \"https://voltz-ten.vercel.app/volt.png\")",
       "Bash(awk '{print $5\" bytes\"}')",
       "Bash(awk -F: '$1>9273 && $1<9980')",
-      "Bash(git commit -q -m 'Community: account-based identity + one-time username prompt *)"
+      "Bash(git commit -q -m 'Community: account-based identity + one-time username prompt *)",
+      "Bash(awk -F: '$1>8550 && $1<10720')",
+      "Bash(git commit -q -m 'Community rebrand: purple/indigo -> Voltz red + graphite *)"
     ]
   }
 }

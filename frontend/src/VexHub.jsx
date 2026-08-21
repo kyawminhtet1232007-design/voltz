@@ -8957,71 +8957,70 @@ function NotebookView({ serverId, myName, myColor, isAdmin }) {
 const ChatThemeCtx = React.createContext(false);
 function chatColors(dark) {
   return {
-    // Backgrounds
-    // Light-mode values aligned to the slate ramp in lib/theme.js
-    outerBg:            dark ? '#060f1e' : '#ffffff',
-    sidebarBg:          dark ? '#0f2137' : '#f1f5f9',
-    headerBg:           dark ? '#060f1e' : '#ffffff',
-    msgAreaBg:          dark ? '#060f1e' : '#ffffff',
-    membersBg:          dark ? '#08192e' : '#f8fafc',
-    inputBg:            dark ? '#0f2137' : '#f1f5f9',
-    cardBg:             dark ? '#0f2137' : '#ffffff',
-    inviteCodeBg:       dark ? '#060f1e' : '#ffffff',
+    // Backgrounds — graphite ramp in dark (Voltz brand), light slate ramp in light
+    outerBg:            dark ? '#141416' : '#ffffff',
+    sidebarBg:          dark ? '#1c1c20' : '#f1f5f9',
+    headerBg:           dark ? '#141416' : '#ffffff',
+    msgAreaBg:          dark ? '#141416' : '#ffffff',
+    membersBg:          dark ? '#171719' : '#f8fafc',
+    inputBg:            dark ? '#1c1c20' : '#f1f5f9',
+    cardBg:             dark ? '#1c1c20' : '#ffffff',
+    inviteCodeBg:       dark ? '#141416' : '#ffffff',
     userPanelBg:        dark ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.03)',
     hoverBg:            dark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.025)',
-    deleteBtnBg:        dark ? '#2b2d31' : '#f3f4f6',
-    shareCardBg:        dark ? '#1e2838' : '#f8fafc',
-    addChInputBg:       dark ? '#060f1e' : '#ffffff',
+    deleteBtnBg:        dark ? '#2b2b30' : '#f3f4f6',
+    shareCardBg:        dark ? '#232327' : '#f8fafc',
+    addChInputBg:       dark ? '#141416' : '#ffffff',
     // Borders
-    border:             dark ? 'rgba(96,165,250,0.08)' : '#e2e8f0',
-    accentBorder:       dark ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.18)',
+    border:             dark ? 'rgba(255,255,255,0.07)' : '#e2e8f0',
+    accentBorder:       dark ? 'rgba(220,38,38,0.28)' : 'rgba(220,38,38,0.18)',
     imgBorder:          dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)',
-    membersBorder:      dark ? 'rgba(96,165,250,0.06)' : '#e2e8f0',
+    membersBorder:      dark ? 'rgba(255,255,255,0.05)' : '#e2e8f0',
     // Text
-    textPrimary:        dark ? '#f1f5f9' : '#111827',
-    textSecond:         dark ? '#e2e8f0' : '#374151',
-    textMuted:          dark ? '#94a3b8' : '#6b7280',
-    textDim:            dark ? '#334d66' : '#9ca3af',
-    textChannel:        dark ? '#4b6a8a' : '#6b7280',
-    textTime:           dark ? '#72767d' : '#9ca3af',
-    textLabel:          dark ? '#334155' : '#9ca3af',
-    // Accent (indigo in both)
-    accentText:         dark ? '#818cf8' : '#6366f1',
-    accentBg:           dark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.08)',
-    accentActive:       dark ? 'rgba(99,102,241,0.14)' : 'rgba(99,102,241,0.1)',
+    textPrimary:        dark ? '#f4f4f5' : '#111827',
+    textSecond:         dark ? '#e4e4e7' : '#374151',
+    textMuted:          dark ? '#a1a1aa' : '#6b7280',
+    textDim:            dark ? '#52525b' : '#9ca3af',
+    textChannel:        dark ? '#71717a' : '#6b7280',
+    textTime:           dark ? '#71717a' : '#9ca3af',
+    textLabel:          dark ? '#3f3f46' : '#9ca3af',
+    // Accent (Voltz red in both)
+    accentText:         dark ? '#ff6b6b' : '#dc2626',
+    accentBg:           dark ? 'rgba(220,38,38,0.12)' : 'rgba(220,38,38,0.08)',
+    accentActive:       dark ? 'rgba(220,38,38,0.18)' : 'rgba(220,38,38,0.1)',
     // Specific
-    statusBorder:       dark ? '#0f2137' : '#f1f5f9',
-    memberStatusBorder: dark ? '#08192e' : '#f8fafc',
+    statusBorder:       dark ? '#1c1c20' : '#f1f5f9',
+    memberStatusBorder: dark ? '#171719' : '#f8fafc',
     onlineText:         dark ? '#4ade80' : '#16a34a',
     dndText:            dark ? '#f87171' : '#dc2626',
-    inviteCode:         dark ? '#818cf8' : '#6366f1',
-    inviteCopyBg:       dark ? 'rgba(59,130,246,0.08)' : 'rgba(99,102,241,0.07)',
-    inviteCopyBd:       dark ? 'rgba(59,130,246,0.15)' : 'rgba(99,102,241,0.2)',
-    callBtnBg:          dark ? 'rgba(59,130,246,0.08)' : 'rgba(99,102,241,0.06)',
-    callBtnBd:          dark ? 'rgba(59,130,246,0.2)' : '#e2e8f0',
-    callBtnColor:       dark ? '#60a5fa' : '#9ca3af',
+    inviteCode:         dark ? '#ff6b6b' : '#dc2626',
+    inviteCopyBg:       dark ? 'rgba(220,38,38,0.1)' : 'rgba(220,38,38,0.07)',
+    inviteCopyBd:       dark ? 'rgba(220,38,38,0.22)' : 'rgba(220,38,38,0.2)',
+    callBtnBg:          dark ? 'rgba(220,38,38,0.1)' : 'rgba(220,38,38,0.06)',
+    callBtnBd:          dark ? 'rgba(220,38,38,0.24)' : '#e2e8f0',
+    callBtnColor:       dark ? '#ff6b6b' : '#9ca3af',
     sendBtnInactive:    dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
     meetingBg:          dark ? 'rgba(34,197,94,0.05)' : 'rgba(34,197,94,0.05)',
     meetingBorder:      'rgba(34,197,94,0.25)',
     meetingIcon:        dark ? '#4ade80' : '#16a34a',
-    meetingText:        dark ? '#f1f5f9' : '#111827',
+    meetingText:        dark ? '#f4f4f5' : '#111827',
     meetingSubtext:     dark ? '#4ade80' : '#16a34a',
     meetingJoinBg:      dark ? 'rgba(34,197,94,0.15)' : 'rgba(34,197,94,0.12)',
     meetingJoinBd:      'rgba(34,197,94,0.28)',
     meetingJoinColor:   dark ? '#4ade80' : '#16a34a',
-    addChBtnBg:         dark ? 'rgba(59,130,246,0.1)'  : 'rgba(99,102,241,0.07)',
-    addChBtnBd:         dark ? 'rgba(59,130,246,0.25)' : 'rgba(99,102,241,0.2)',
-    addChBtnColor:      dark ? '#60a5fa' : '#6366f1',
-    addChAddbg:         dark ? 'rgba(59,130,246,0.15)' : 'rgba(99,102,241,0.1)',
-    addChAddbBd:        dark ? 'rgba(59,130,246,0.3)'  : 'rgba(99,102,241,0.25)',
-    addChAddColor:      dark ? '#60a5fa' : '#6366f1',
-    chActiveBg:         dark ? 'rgba(59,130,246,0.14)' : 'rgba(99,102,241,0.1)',
-    chActiveText:       dark ? '#e2e8f0' : '#111827',
-    chActiveIcon:       dark ? '#60a5fa' : '#6366f1',
-    chInactiveIcon:     dark ? '#334d66' : '#9ca3af',
-    membersAddmin:      dark ? '#60a5fa' : '#6366f1',
-    filePreviewText:    dark ? '#94a3b8' : '#374151',
-    uploadTrackBg:      dark ? '#1e3a5a' : '#e5e7eb',
+    addChBtnBg:         dark ? 'rgba(220,38,38,0.1)'  : 'rgba(220,38,38,0.07)',
+    addChBtnBd:         dark ? 'rgba(220,38,38,0.26)' : 'rgba(220,38,38,0.2)',
+    addChBtnColor:      dark ? '#ff6b6b' : '#dc2626',
+    addChAddbg:         dark ? 'rgba(220,38,38,0.16)' : 'rgba(220,38,38,0.1)',
+    addChAddbBd:        dark ? 'rgba(220,38,38,0.3)'  : 'rgba(220,38,38,0.25)',
+    addChAddColor:      dark ? '#ff6b6b' : '#dc2626',
+    chActiveBg:         dark ? 'rgba(220,38,38,0.16)' : 'rgba(220,38,38,0.1)',
+    chActiveText:       dark ? '#f4f4f5' : '#111827',
+    chActiveIcon:       dark ? '#ff6b6b' : '#dc2626',
+    chInactiveIcon:     dark ? '#52525b' : '#9ca3af',
+    membersAddmin:      dark ? '#ff6b6b' : '#dc2626',
+    filePreviewText:    dark ? '#a1a1aa' : '#374151',
+    uploadTrackBg:      dark ? '#3f3f46' : '#e5e7eb',
     errorText:          dark ? '#f87171' : '#dc2626',
   };
 }
@@ -9046,7 +9045,7 @@ function NameColorFields({ name, setName, col, setCol, onSubmit }) {
         <div className="flex gap-2 flex-wrap">
           {CHAT_COLORS.map(c=>(
             <button key={c} onClick={()=>setCol(c)}
-              style={{ width:32, height:32, borderRadius:"50%", background:c, border:col===c?"3px solid #6366f1":"3px solid transparent", transition:"all 0.15s", flexShrink:0, boxShadow:col===c?"0 0 0 3px rgba(99,102,241,0.25)":"none" }}/>
+              style={{ width:32, height:32, borderRadius:"50%", background:c, border:col===c?"3px solid #dc2626":"3px solid transparent", transition:"all 0.15s", flexShrink:0, boxShadow:col===c?"0 0 0 3px rgba(220,38,38,0.25)":"none" }}/>
           ))}
         </div>
       </div>
@@ -9088,7 +9087,7 @@ function SetupScreen({ onSetup, error, darkMode, toggleTheme, defaultName }) {
   };
   return (
     <div style={{ minHeight:"100vh", background: darkMode ? DARK_PAGE_BG : LIGHT_PAGE_BG, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }} className="pt-20"> {/* theme: gradient-mesh */}
-      <div style={{ width:"100%", maxWidth:440, background: darkMode ? "#0f2137" : "#ffffff", borderRadius:20, padding:"34px 28px 28px", boxShadow: darkMode ? "0 40px 100px rgba(0,0,0,0.7)" : "0 20px 60px rgba(0,0,0,0.1)", border: darkMode ? "1px solid rgba(96,165,250,0.1)" : "1px solid rgba(0,0,0,0.07)", position:"relative" }}>
+      <div style={{ width:"100%", maxWidth:440, background: darkMode ? "#1c1c20" : "#ffffff", borderRadius:20, padding:"34px 28px 28px", boxShadow: darkMode ? "0 40px 100px rgba(0,0,0,0.7)" : "0 20px 60px rgba(0,0,0,0.1)", border: darkMode ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.07)", position:"relative" }}>
 
         {/* Theme toggle (top-right corner) */}
         {toggleTheme && (
@@ -9103,24 +9102,19 @@ function SetupScreen({ onSetup, error, darkMode, toggleTheme, defaultName }) {
 
         {/* Header */}
         <div className="text-center mb-7">
-          <div style={{ width:58, height:58, borderRadius:18, background:"linear-gradient(135deg,#6366f1,#8b5cf6)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px", boxShadow:"0 8px 24px rgba(99,102,241,0.35)" }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
+          <div style={{ width:58, height:58, borderRadius:18, overflow:"hidden", background:"radial-gradient(circle at 50% 32%, #2b2e35, #141519)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px", boxShadow:"0 8px 24px rgba(220,38,38,0.35)" }}>
+            <VoltLogo size={58} />
           </div>
-          <h2 style={{ color:ST.textPrimary, fontWeight:800, fontSize:22, marginBottom:4 }}>VEX Team Chat</h2>
-          <p style={{ color:ST.textMuted, fontSize:13 }}>Chat with the VEX community or your private team</p>
+          <h2 style={{ color:ST.textPrimary, fontWeight:800, fontSize:22, marginBottom:4 }}>Voltz Community</h2>
+          <p style={{ color:ST.textMuted, fontSize:13 }}>Chat with the Voltz community or your private team</p>
         </div>
 
         {/* Top-level tabs */}
-        <div className="flex gap-1.5 mb-6 p-1 rounded-xl" style={{ background: darkMode ? "#060f1e" : "#f3f4f6" }}>
+        <div className="flex gap-1.5 mb-6 p-1 rounded-xl" style={{ background: darkMode ? "#141416" : "#f3f4f6" }}>
           {[["community","Community"],["team","Team Server"]].map(([id,lbl])=>(
             <button key={id} onClick={()=>{ setTab(id); setLocalErr(""); setServerCode(""); }}
               className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition"
-              style={{ background:tab===id?"linear-gradient(135deg,#6366f1,#8b5cf6)":"transparent", color:tab===id?"#fff":ST.textMuted }}>
+              style={{ background:tab===id?"linear-gradient(135deg,#ef4444,#dc2626)":"transparent", color:tab===id?"#fff":ST.textMuted }}>
               {lbl}
             </button>
           ))}
@@ -9132,7 +9126,7 @@ function SetupScreen({ onSetup, error, darkMode, toggleTheme, defaultName }) {
             <>
               <div style={{ background:ST.accentBg, border:`1px solid ${ST.accentBorder}`, borderRadius:10, padding:"10px 14px" }}>
                 <p style={{ color:ST.accentText, fontSize:12, lineHeight:1.6 }}>
-                  Join the <strong style={{color:ST.textPrimary}}>VEX Hub Community</strong> — open to everyone on the site. Chat, share results, and connect with other VEX teams.
+                  Join the <strong style={{color:ST.textPrimary}}>Voltz Community</strong> — open to everyone on the site. Chat, share results, and connect with other VEX teams.
                 </p>
               </div>
               <NameColorFields name={name} setName={setName} col={col} setCol={setCol} onSubmit={handleSubmit}/>
@@ -9141,7 +9135,7 @@ function SetupScreen({ onSetup, error, darkMode, toggleTheme, defaultName }) {
             /* ── Team Server tab ── */
             <>
               {/* Create / Join sub-toggle */}
-              <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: darkMode ? "#060f1e" : "#f3f4f6" }}>
+              <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: darkMode ? "#141416" : "#f3f4f6" }}>
                 {[["create","Create"],["join","Join"]].map(([id,lbl])=>(
                   <button key={id} onClick={()=>{ setTeamMode(id); setLocalErr(""); setServerCode(""); }}
                     className="flex-1 py-1.5 rounded-md text-xs font-semibold transition"
@@ -9176,7 +9170,7 @@ function SetupScreen({ onSetup, error, darkMode, toggleTheme, defaultName }) {
 
           <button onClick={handleSubmit}
             className="w-full py-3.5 rounded-xl text-white font-bold text-sm transition hover:opacity-90 active:scale-95"
-            style={{ background:"linear-gradient(135deg,#6366f1,#8b5cf6)", marginTop:4, boxShadow:"0 4px 20px rgba(99,102,241,0.35)" }}>
+            style={{ background:"linear-gradient(135deg,#ef4444,#dc2626)", marginTop:4, boxShadow:"0 4px 20px rgba(220,38,38,0.35)" }}>
             {tab==="community" ? "Join Community" : teamMode==="create" ? "Create Server" : "Join Server"}
           </button>
         </div>
@@ -9184,7 +9178,7 @@ function SetupScreen({ onSetup, error, darkMode, toggleTheme, defaultName }) {
         {/* Live preview */}
         {name.trim() && (
           <div className="flex items-center gap-3 mt-6 pt-5" style={{ borderTop:`1px solid ${ST.border}` }}>
-            <div style={{ width:38, height:38, borderRadius:"50%", background:col, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:`0 0 0 3px rgba(99,102,241,0.15)` }}>
+            <div style={{ width:38, height:38, borderRadius:"50%", background:col, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:`0 0 0 3px rgba(220,38,38,0.15)` }}>
               <span style={{ color:"#fff", fontWeight:800, fontSize:15 }}>{name.trim()[0].toUpperCase()}</span>
             </div>
             <div>
@@ -10078,7 +10072,7 @@ function TeamChat() {
       {/* Server header */}
       <div style={{ padding:"14px 16px 12px", borderBottom:`1px solid ${T.border}` }}>
         <div className="flex items-center gap-3">
-          <div style={{ width:38, height:38, borderRadius:12, background:"linear-gradient(135deg,#6366f1,#8b5cf6)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontWeight:800, fontSize:17, color:"#fff" }}>
+          <div style={{ width:38, height:38, borderRadius:12, background:"linear-gradient(135deg,#ef4444,#dc2626)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontWeight:800, fontSize:17, color:"#fff" }}>
             {serverName[0]?.toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
@@ -10363,7 +10357,7 @@ function TeamChat() {
                   </p>
                   {sending && uploadPct > 0 && (
                     <div style={{ height:3, background:T.uploadTrackBg, borderRadius:2, marginTop:5, overflow:"hidden" }}>
-                      <div style={{ height:"100%", width:`${uploadPct}%`, background:"linear-gradient(90deg,#6366f1,#8b5cf6)", borderRadius:2, transition:"width 0.3s" }}/>
+                      <div style={{ height:"100%", width:`${uploadPct}%`, background:"linear-gradient(90deg,#ef4444,#dc2626)", borderRadius:2, transition:"width 0.3s" }}/>
                     </div>
                   )}
                 </div>
@@ -10393,7 +10387,7 @@ function TeamChat() {
               style={{ color:T.textSecond }}
             />
             <button onClick={send} disabled={(!input.trim() && !pendingFile) || sending}
-              style={{ width:34, height:34, borderRadius:10, background:(input.trim()||pendingFile)?"linear-gradient(135deg,#6366f1,#8b5cf6)":T.sendBtnInactive, border:"none", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:(input.trim()||pendingFile)?"pointer":"default", transition:"all 0.2s", opacity:sending?0.5:1 }}>
+              style={{ width:34, height:34, borderRadius:10, background:(input.trim()||pendingFile)?"linear-gradient(135deg,#ef4444,#dc2626)":T.sendBtnInactive, border:"none", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:(input.trim()||pendingFile)?"pointer":"default", transition:"all 0.2s", opacity:sending?0.5:1 }}>
               {sending
                 ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={(input.trim()||pendingFile)?"white":T.textDim} strokeWidth="2.5"><circle cx="12" cy="12" r="10" strokeOpacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/></path></svg>
                 : <svg width="16" height="16" viewBox="0 0 24 24" fill={(input.trim()||pendingFile)?"white":T.textDim}><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
@@ -10405,20 +10399,20 @@ function TeamChat() {
 
       {/* ── Video call overlay ─────────────────────────────────────────── */}
       {callLoading && (
-        <div style={{ position:"fixed", inset:0, zIndex:9990, background: darkMode ? "rgba(6,15,30,0.9)" : "rgba(255,255,255,0.85)", backdropFilter:"blur(4px)", display:"flex", alignItems:"center", justifyContent:"center", top:72 }}>
+        <div style={{ position:"fixed", inset:0, zIndex:9990, background: darkMode ? "rgba(20,20,22,0.92)" : "rgba(255,255,255,0.85)", backdropFilter:"blur(4px)", display:"flex", alignItems:"center", justifyContent:"center", top:72 }}>
           <div style={{ textAlign:"center" }}>
-            <div style={{ width:48, height:48, borderRadius:"50%", border:"3px solid rgba(99,102,241,0.2)", borderTopColor:"#6366f1", animation:"spin 0.8s linear infinite", margin:"0 auto 14px" }}/>
+            <div style={{ width:48, height:48, borderRadius:"50%", border:"3px solid rgba(220,38,38,0.2)", borderTopColor:"#dc2626", animation:"spin 0.8s linear infinite", margin:"0 auto 14px" }}/>
             <p style={{ color:T.textMuted, fontSize:14 }}>Connecting to call…</p>
           </div>
         </div>
       )}
       {inCall && livekitToken && (
-        <div style={{ position:"fixed", inset:0, zIndex:9990, background:"#0d1117", display:"flex", flexDirection:"column", top:72 }}>
+        <div style={{ position:"fixed", inset:0, zIndex:9990, background:"#0e0e10", display:"flex", flexDirection:"column", top:72 }}>
           {/* Toolbar */}
-          <div style={{ height:52, background:"#060f1e", borderBottom:"1px solid rgba(34,197,94,0.15)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 20px", flexShrink:0, zIndex:1 }}>
+          <div style={{ height:52, background:"#141416", borderBottom:"1px solid rgba(34,197,94,0.15)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 20px", flexShrink:0, zIndex:1 }}>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <span style={{ width:8, height:8, borderRadius:"50%", background: preJoinDone?"#4ade80":"#facc15", display:"inline-block" }}/>
-              <span style={{ color:"#f1f5f9", fontWeight:700, fontSize:14 }}>
+              <span style={{ color:"#f4f4f5", fontWeight:700, fontSize:14 }}>
                 {preJoinDone ? `Live call · ${serverName} · #${channel}` : `Ready to join · ${serverName} · #${channel}`}
               </span>
             </div>
@@ -10453,7 +10447,7 @@ function TeamChat() {
                   <span style={{ color:"#fff", fontWeight:800, fontSize:32 }}>{myName?.[0]?.toUpperCase()}</span>
                 </div>
                 <p style={{ color:"#111827", fontWeight:800, fontSize:20, marginBottom:4 }}>{myName}</p>
-                <p style={{ color:"#16a34a", fontSize:13, marginBottom:28 }}>Ready to join · <span style={{ color:"#6366f1" }}>#{channel}</span></p>
+                <p style={{ color:"#16a34a", fontSize:13, marginBottom:28 }}>Ready to join · <span style={{ color:"#dc2626" }}>#{channel}</span></p>
 
                 {/* Mic / Camera toggles */}
                 <div style={{ display:"flex", gap:14, justifyContent:"center", marginBottom:32 }}>
@@ -10566,7 +10560,7 @@ function TeamChat() {
                     <option value="flag">Flag for review</option>
                   </select>
                   <button onClick={addAutomodRule}
-                    style={{ background:"linear-gradient(135deg,#6366f1,#8b5cf6)", border:"none", borderRadius:8, padding:"7px 16px", color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                    style={{ background:"linear-gradient(135deg,#ef4444,#dc2626)", border:"none", borderRadius:8, padding:"7px 16px", color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer" }}>
                     Add
                   </button>
                 </div>
@@ -10667,7 +10661,7 @@ function TeamChat() {
           <div style={{ background:T.cardBg, border:`1px solid ${T.border}`, borderRadius:16, padding:28, width:300, boxShadow:"0 20px 60px rgba(0,0,0,0.4)" }}
             onClick={e=>e.stopPropagation()}>
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:18 }}>
-              <div style={{ width:34, height:34, borderRadius:10, background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", display:"flex", alignItems:"center", justifyContent:"center", color:"#6366f1" }}>
+              <div style={{ width:34, height:34, borderRadius:10, background:"rgba(220,38,38,0.12)", border:"1px solid rgba(220,38,38,0.25)", display:"flex", alignItems:"center", justifyContent:"center", color:"#dc2626" }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
               </div>
               <p style={{ color:T.textPrimary, fontWeight:700, fontSize:14 }}>Owner Access</p>
@@ -10708,7 +10702,7 @@ function TeamChat() {
                   setPinInput("");
                 }
               }}
-              style={{ width:"100%", padding:"9px 0", borderRadius:9, background:"linear-gradient(135deg,#6366f1,#8b5cf6)", border:"none", color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer" }}>
+              style={{ width:"100%", padding:"9px 0", borderRadius:9, background:"linear-gradient(135deg,#ef4444,#dc2626)", border:"none", color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer" }}>
               Unlock
             </button>
           </div>
