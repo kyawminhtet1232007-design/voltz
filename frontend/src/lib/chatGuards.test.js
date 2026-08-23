@@ -1,9 +1,44 @@
 import { describe, it, expect } from 'vitest';
 import {
-  matchAutomod, isIpBanned, isRateLimited, checkDailyUpload,
+  matchAutomod, containsBannedWord, normalizeForFilter, isIpBanned, isRateLimited, checkDailyUpload,
   isFileSizeOk, formatBytes, validateServerChoice,
   MAX_FILE_BYTES, DAILY_UPLOAD_BYTES, SEND_COOLDOWN_MS,
 } from './chatGuards.js';
+
+describe('containsBannedWord', () => {
+  it('blocks plain profanity and slurs', () => {
+    expect(containsBannedWord('what the fuck')).toBe('fuck');
+    expect(containsBannedWord('you bitch')).toBeTruthy();
+    expect(containsBannedWord('total bullshit here')).toBeTruthy();
+  });
+  it('catches leetspeak and repeated letters', () => {
+    expect(containsBannedWord('sh1t')).toBeTruthy();
+    expect(containsBannedWord('fuuuuck you')).toBeTruthy();
+    expect(containsBannedWord('a$$hole')).toBeTruthy();
+  });
+  it('catches common morphological suffixes', () => {
+    expect(containsBannedWord('stop fucking around')).toBeTruthy();
+    expect(containsBannedWord('bitches be like')).toBeTruthy();
+  });
+  it('catches letter-spaced severe slurs', () => {
+    expect(containsBannedWord('n i g g e r')).toBeTruthy();
+  });
+  it('does NOT flag innocent words (no Scunthorpe problem)', () => {
+    expect(containsBannedWord('great class today')).toBeNull();
+    expect(containsBannedWord('the assessment was hard')).toBeNull();
+    expect(containsBannedWord('sit in the cockpit')).toBeNull();
+    expect(containsBannedWord('pass the bass guitar')).toBeNull();
+    expect(containsBannedWord('I assume we assemble the robot')).toBeNull();
+    expect(containsBannedWord('')).toBeNull();
+    expect(containsBannedWord(null)).toBeNull();
+  });
+});
+
+describe('normalizeForFilter', () => {
+  it('lowercases, de-leets, strips punctuation, collapses repeats', () => {
+    expect(normalizeForFilter('He110   Wooorld')).toBe('heiio world');
+  });
+});
 
 describe('matchAutomod', () => {
   const rules = [

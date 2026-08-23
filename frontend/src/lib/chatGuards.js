@@ -13,6 +13,65 @@ export const MAX_FILE_BYTES     = 40 * 1024 * 1024; // 40MB per file
 export const DAILY_UPLOAD_BYTES = 40 * 1024 * 1024; // 40MB per user per day
 export const SEND_COOLDOWN_MS   = 1200;             // min ms between sends
 
+// ── Built-in profanity / slur filter ────────────────────────────────────────
+// An always-on blocklist (independent of the owner's custom automod rules) that
+// blocks the categories mainstream social platforms disallow: strong profanity,
+// explicit sexual terms, and hate slurs. A blocklist must, by nature, contain
+// the words it blocks. Kept as data + a pure matcher so it's testable.
+//
+// Design notes (why it doesn't just substring-match):
+//  - Text is normalised first: lowercased, common leet chars mapped to letters
+//    (0→o, 1→i, 3→e, 4→a, 5→s, 7→t, 8→b, @→a, $→s), everything non-alphabetic
+//    turned into spaces, and 3+ repeated letters collapsed ("fuuuck"→"fuck").
+//  - Each term matches with a leading word boundary + optional common suffix +
+//    trailing boundary, so "ass" flags "ass"/"asshole"* but NOT "class",
+//    "assess", "bass" (avoids the classic "Scunthorpe problem").
+//  - A tiny SEVERE set is also matched against the de-spaced string to catch
+//    letter-spacing ("n i g g e r"); chosen to have no common innocent substring.
+export const DEFAULT_BLOCKLIST = [
+  // strong profanity
+  "fuck", "motherfucker", "shit", "bullshit", "bitch", "bastard", "asshole",
+  "ass", "arse", "arsehole", "dick", "cock", "prick", "piss", "pussy", "cunt",
+  "twat", "wanker", "bollocks", "slut", "whore", "douchebag", "jackass",
+  // explicit sexual
+  "porn", "porno", "blowjob", "handjob", "dildo", "cum", "creampie", "boner",
+  "jerkoff", "titties", "nudes",
+  // hate slurs (racial / homophobic / ableist)
+  "nigger", "nigga", "faggot", "fag", "retard", "retarded", "chink", "kike",
+  "spick", "wetback", "tranny", "dyke", "coon", "gook", "beaner", "shemale",
+];
+// Matched even when letter-spaced / de-spaced. Only terms with no common
+// innocent substring collision belong here.
+const SEVERE_SQUISHED = ["nigger", "niggers", "faggot", "faggots", "chink", "kike"];
+
+const LEET_MAP = { "0":"o","1":"i","3":"e","4":"a","5":"s","7":"t","8":"b","@":"a","$":"s","|":"i","!":"i" };
+
+// Normalise text for filtering: lowercase, de-leet, non-letters→space,
+// collapse 3+ repeats, squeeze spaces.
+export function normalizeForFilter(text) {
+  let s = String(text || "").toLowerCase();
+  s = s.replace(/[0134578@$|!]/g, c => LEET_MAP[c] || c);
+  s = s.replace(/[^a-z\s]/g, " ");
+  s = s.replace(/([a-z])\1{2,}/g, "$1");
+  return s.replace(/\s+/g, " ").trim();
+}
+
+// Return the first banned word found in `text`, or null. Pure.
+export function containsBannedWord(text, list = DEFAULT_BLOCKLIST) {
+  if (!text) return null;
+  const norm = normalizeForFilter(text);
+  if (!norm) return null;
+  for (const w of list) {
+    // leading boundary + optional common morphological suffix + trailing boundary
+    if (new RegExp(`\\b${w}(?:s|es|ing|ers?|ed|in|z|y)?\\b`).test(norm)) return w;
+  }
+  const squished = norm.replace(/\s+/g, "");
+  for (const w of SEVERE_SQUISHED) {
+    if (squished.includes(w)) return w;
+  }
+  return null;
+}
+
 // Return the matched automod rule for a piece of text, or null.
 // A rule is { id, pattern, action: "block"|"flag" }. `pattern` is tried as a
 // case-insensitive regex first, falling back to a plain substring match if the

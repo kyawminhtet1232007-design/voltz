@@ -12,7 +12,7 @@ import { OrbitControls, Text, Environment, useGLTF, RoundedBox } from "@react-th
 import ErrorBoundary from "./lib/ErrorBoundary.jsx";
 import { createLogger } from "./lib/logger.js";
 import {
-  matchAutomod, isIpBanned, isRateLimited, checkDailyUpload, isFileSizeOk, formatBytes,
+  matchAutomod, containsBannedWord, isIpBanned, isRateLimited, checkDailyUpload, isFileSizeOk, formatBytes,
   validateServerChoice, MAX_FILE_BYTES, DAILY_UPLOAD_BYTES, SEND_COOLDOWN_MS,
 } from "./lib/chatGuards.js";
 // Refinement: styled toast + async confirm replacing native alert()/window.confirm()
@@ -9918,6 +9918,13 @@ function TeamChat() {
       return;
     }
 
+    // Built-in profanity/slur filter on the caption.
+    if (containsBannedWord(input.trim())) {
+      setError("That caption can't be sent — it contains language that isn't allowed here.");
+      chatLog.info("Blocked media caption (built-in word filter)", { user: myName });
+      return;
+    }
+
     const { file, mediaType } = pendingFile;
     const today = new Date().toISOString().slice(0, 10);
 
@@ -10005,6 +10012,14 @@ function TeamChat() {
       chatLog.warn("Blocked send from banned IP", { ip: userIp });
       setInput("");
       setSending(false);
+      return;
+    }
+
+    // Always-on profanity / slur filter (mainstream-platform community standards),
+    // applied before the owner's custom rules and to every server incl. the Community.
+    if (containsBannedWord(text)) {
+      setError("That message can't be sent — it contains language that isn't allowed here.");
+      chatLog.info("Blocked message (built-in word filter)", { user: myName });
       return;
     }
 
