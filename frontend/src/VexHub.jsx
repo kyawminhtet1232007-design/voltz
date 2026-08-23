@@ -9499,6 +9499,9 @@ function TeamChat() {
   const [callLoading,  setCallLoading]  = React.useState(false);
   const [preJoinDone,  setPreJoinDone]  = React.useState(false);
   const [joinOptions,  setJoinOptions]  = React.useState({ videoEnabled: true, audioEnabled: true });
+  const [whiteboardOpen, setWhiteboardOpen] = React.useState(false); // shared whiteboard shown inside the call
+  const [whiteboardUrl,  setWhiteboardUrl]  = React.useState("");
+  const wbChanRef = React.useRef(null); // realtime broadcast channel that syncs whiteboard open/close to everyone in the call
   const [customChannels, setCustomChannels] = React.useState([]);
   const [showAddCh,      setShowAddCh]      = React.useState(false);
   const [newChName,      setNewChName]      = React.useState("");
@@ -9760,6 +9763,21 @@ function TeamChat() {
       });
     }, 1000);
     return () => { clearInterval(iv); ch.unsubscribe(); typingChanRef.current = null; };
+  }, [ready, serverId, channel]);
+
+  // Shared-whiteboard sync — when one person opens/closes the in-call whiteboard,
+  // everyone in the call sees it (Meet/Teams style). Ephemeral broadcast, no DB.
+  React.useEffect(() => {
+    if (!ready || !serverId) return;
+    const sb = getSB();
+    if (!sb) return;
+    const ch = sb.channel(`wb:${serverId}_${channel}`, { config: { broadcast: { self: false } } });
+    ch.on("broadcast", { event: "whiteboard" }, ({ payload }) => {
+      if (payload?.open) { if (payload.url) setWhiteboardUrl(payload.url); setWhiteboardOpen(true); }
+      else setWhiteboardOpen(false);
+    }).subscribe();
+    wbChanRef.current = ch;
+    return () => { ch.unsubscribe(); wbChanRef.current = null; };
   }, [ready, serverId, channel]);
 
   // Update tracked status when user toggles online/dnd
@@ -10326,8 +10344,7 @@ function TeamChat() {
   // deterministically from serverId means everyone in the server (with the invite)
   // lands in the same board — no backend, no account. (tldraw's old /r/ auto-rooms
   // were discontinued — that URL now 404s, which is why the button did nothing.)
-  const openWhiteboard = async () => {
-    let url = "https://excalidraw.com";
+  const deriveWhiteboardUrl = async () => {
     try {
       const enc = new TextEncoder();
       const idBuf  = await crypto.subtle.digest("SHA-256", enc.encode("voltz-wb-id:"  + serverId));
@@ -10335,11 +10352,23 @@ function TeamChat() {
       const roomId = Array.from(new Uint8Array(idBuf).slice(0, 10), b => b.toString(16).padStart(2, "0")).join("");
       const keyB64 = btoa(String.fromCharCode(...new Uint8Array(keyBuf).slice(0, 16)))
         .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-      url = `https://excalidraw.com/#room=${roomId},${keyB64}`;
+      return `https://excalidraw.com/#room=${roomId},${keyB64}`;
     } catch (e) {
       chatLog.warn("whiteboard room derivation failed — opening a blank board", { msg: e?.message });
+      return "https://excalidraw.com";
     }
-    window.open(url, "_blank", "noopener");
+  };
+  // Open the whiteboard INSIDE the call, and broadcast so it opens for everyone
+  // (Google Meet / Teams style). Same derived room for all → one shared board.
+  const openWhiteboard = async () => {
+    const url = await deriveWhiteboardUrl();
+    setWhiteboardUrl(url);
+    setWhiteboardOpen(true);
+    wbChanRef.current?.send({ type: "broadcast", event: "whiteboard", payload: { open: true, url } });
+  };
+  const closeWhiteboard = () => {
+    setWhiteboardOpen(false);
+    wbChanRef.current?.send({ type: "broadcast", event: "whiteboard", payload: { open: false } });
   };
 
   const addChannel = async () => {
@@ -10791,10 +10820,10 @@ function TeamChat() {
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
               {preJoinDone && (<>
-                <button onClick={openWhiteboard} title="Open collaborative whiteboard"
-                  style={{ background:"rgba(59,130,246,0.12)", border:"1px solid rgba(59,130,246,0.25)", color:"#60a5fa", borderRadius:8, padding:"5px 12px", cursor:"pointer", fontSize:12, fontWeight:600, display:"flex", alignItems:"center", gap:5 }}>
+                <button onClick={whiteboardOpen ? closeWhiteboard : openWhiteboard} title={whiteboardOpen ? "Hide the shared whiteboard" : "Open a shared whiteboard for everyone"}
+                  style={{ background:whiteboardOpen?"rgba(59,130,246,0.28)":"rgba(59,130,246,0.12)", border:`1px solid ${whiteboardOpen?"rgba(59,130,246,0.6)":"rgba(59,130,246,0.25)"}`, color:"#60a5fa", borderRadius:8, padding:"5px 12px", cursor:"pointer", fontSize:12, fontWeight:600, display:"flex", alignItems:"center", gap:5 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9l2 2 4-4"/><path d="M3 15h18"/></svg>
-                  Whiteboard
+                  {whiteboardOpen ? "Hide board" : "Whiteboard"}
                 </button>
                 <button onClick={recording ? stopRecording : startRecording} title={recording ? "Stop recording" : "Record meeting"}
                   style={{ background:recording?"rgba(239,68,68,0.2)":"rgba(255,255,255,0.05)", border:`1px solid ${recording?"rgba(239,68,68,0.4)":"rgba(255,255,255,0.12)"}`, color:recording?"#f87171":"#94a3b8", borderRadius:8, padding:"5px 12px", cursor:"pointer", fontSize:12, fontWeight:600, display:"flex", alignItems:"center", gap:5 }}>
@@ -10804,7 +10833,7 @@ function TeamChat() {
                   }
                 </button>
               </>)}
-              <button onClick={()=>{ setInCall(false); setLivekitToken(null); setPreJoinDone(false); }}
+              <button onClick={()=>{ setInCall(false); setLivekitToken(null); setPreJoinDone(false); setWhiteboardOpen(false); }}
                 style={{ background:"rgba(239,68,68,0.12)", border:"1px solid rgba(239,68,68,0.25)", color:"#f87171", borderRadius:8, padding:"5px 14px", cursor:"pointer", fontSize:13, fontWeight:700 }}>
                 {preJoinDone ? "Leave call" : "Cancel"}
               </button>
@@ -10858,9 +10887,26 @@ function TeamChat() {
             </div>
           )}
 
-          {/* Live room */}
+          {/* Live room — whiteboard (when open) fills the stage, video docks beside it */}
           {preJoinDone && (
-            <div style={{ flex:1, overflow:"hidden" }}>
+            <div style={{ flex:1, overflow:"hidden", display:"flex" }}>
+              {whiteboardOpen && (
+                <div style={{ flex:1, minWidth:0, position:"relative", background:"#ffffff", borderRight:"1px solid rgba(255,255,255,0.12)" }}>
+                  <div style={{ height:34, background:"#141416", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 12px" }}>
+                    <span style={{ color:"#94a3b8", fontSize:11, fontWeight:600, display:"flex", alignItems:"center", gap:6 }}>
+                      <span style={{ width:6, height:6, borderRadius:"50%", background:"#4ade80", display:"inline-block" }}/>
+                      Shared whiteboard · everyone in the call can draw
+                    </span>
+                    <button onClick={closeWhiteboard} style={{ color:"#f87171", background:"none", border:"none", cursor:"pointer", fontSize:11, fontWeight:700 }}>Close ✕</button>
+                  </div>
+                  {whiteboardUrl && (
+                    <iframe title="Shared whiteboard" src={whiteboardUrl}
+                      style={{ width:"100%", height:"calc(100% - 34px)", border:"none", display:"block" }}
+                      allow="clipboard-read; clipboard-write; fullscreen" />
+                  )}
+                </div>
+              )}
+              <div style={{ width: whiteboardOpen ? 340 : "100%", flexShrink:0, height:"100%", overflow:"hidden" }}>
               <LiveKitRoom
                 token={livekitToken}
                 serverUrl={LIVEKIT_URL}
@@ -10891,6 +10937,7 @@ function TeamChat() {
                 <VideoConference />
                 <RoomAudioRenderer />
               </LiveKitRoom>
+              </div>
             </div>
           )}
         </div>
