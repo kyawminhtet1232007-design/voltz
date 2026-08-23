@@ -11136,6 +11136,22 @@ function TeamChat() {
 // Themed illustration for each Resources chapter — inline SVG (no external
 // assets to break), gradient tinted with the chapter's accent. Used by the
 // LearningTrack cards and as each chapter's banner.
+// Guide card art: shows the real photo (`img`) when it loads, and falls back to
+// the illustrated ChapterArt panel if no photo is set or the file is missing —
+// so dropping a JPG into /public makes the photo appear with zero code changes.
+function GuideArt({ id, accent, img }) {
+  const [failed, setFailed] = React.useState(false);
+  return (
+    <>
+      <ChapterArt id={id} accent={accent} />
+      {img && !failed && (
+        <img src={img} alt="" draggable={false} onError={() => setFailed(true)}
+          className="absolute inset-0 w-full h-full object-cover" />
+      )}
+    </>
+  );
+}
+
 function ChapterArt({ id, accent, className = "" }) {
   // Stylized VEX-themed illustrated scenes (inline SVG, no external images — so
   // nothing overlaps with the Lessons tab photos). Each panel: accent gradient +
@@ -11316,15 +11332,15 @@ function Resources() {
   // guide at a time. `openGuide` null → hub. Voltz is woven in as an interactive
   // explainer — "Ask Voltz" buttons dispatch `voltz-ask` (handled by FloatingChat).
   const CHAPTERS = [
-    { id:"game",    label:"Override 2026–27", num:"01", title:"Know the game.",       desc:"Rules, scoring, field elements, and penalties for the 2026–27 season — everything you need before your first match.", accent:"#dc2626", tag:"Game manual",
+    { id:"game",    label:"Override 2026–27", num:"01", title:"Know the game.",       desc:"Rules, scoring, field elements, and penalties for the 2026–27 season — everything you need before your first match.", accent:"#dc2626", tag:"Game manual", img:"/guide-game.png",
       stats:["18 rules & values","6 field elements"], tip:"Not sure how Pins score? I can walk through any rule in here with a worked example.", ask:"Explain how Pin scoring works in VEX Override with an example" },
-    { id:"cppref",  label:"C++ Quick Ref",    num:"02", title:"Speak fluent C++.",    desc:"The VEXcode API and the core language constructs, condensed into one glanceable reference.", accent:"#2563eb", tag:"API & syntax",
+    { id:"cppref",  label:"C++ Quick Ref",    num:"02", title:"Speak fluent C++.",    desc:"The VEXcode API and the core language constructs, condensed into one glanceable reference.", accent:"#2563eb", tag:"API & syntax", img:"/guide-cpp.jpg",
       stats:["40+ API calls","12 core patterns"], tip:"I can explain any function on this page — or write working example code for your robot.", ask:"Show me an example VEXcode C++ drive program using motor groups" },
-    { id:"design",  label:"Robot Design",     num:"03", title:"Build it better.",     desc:"Override mechanism planning, official motor rules, and the drivetrain call that wins Midfield battles.", accent:"#ea580c", tag:"Mechanisms",
+    { id:"design",  label:"Robot Design",     num:"03", title:"Build it better.",     desc:"Override mechanism planning, official motor rules, and the drivetrain call that wins Midfield battles.", accent:"#ea580c", tag:"Mechanisms", img:"/guide-design.png",
       stats:["4 Override mechanisms","official rules"], tip:"Torn between drivetrains? Tell me your strategy and I'll help you pick the right one.", ask:"Help me choose a drivetrain for VEX Override" },
-    { id:"strategy",label:"Match Strategy",   num:"04", title:"Outplay everyone.",    desc:"Autonomous planning, alliance play, and the decisions that swing close matches.", accent:"#0891b2", tag:"Tactics",
+    { id:"strategy",label:"Match Strategy",   num:"04", title:"Outplay everyone.",    desc:"Autonomous planning, alliance play, and the decisions that swing close matches.", accent:"#0891b2", tag:"Tactics", img:"/guide-strategy.jpg",
       stats:["5 auton plays","alliance tactics"], tip:"I can help you plan a 15-second autonomous routine for your next match.", ask:"Help me plan a 15-second autonomous routine for VEX Override" },
-    { id:"notebook",label:"Notebook Guide",   num:"05", title:"Document like a pro.", desc:"What judges actually look for in an engineering notebook, section by section.", accent:"#16a34a", tag:"Judging",
+    { id:"notebook",label:"Notebook Guide",   num:"05", title:"Document like a pro.", desc:"What judges actually look for in an engineering notebook, section by section.", accent:"#16a34a", tag:"Judging", img:"/guide-notebook.jpg",
       stats:["7 sections","judge rubric"], tip:"Writing an entry? I can review it against the judging rubric with you.", ask:"What makes a great VEX engineering notebook entry?" },
   ];
   const [openGuide, setOpenGuide] = React.useState(null);
@@ -11386,7 +11402,7 @@ function Resources() {
         style={{ border: "1px solid #e6e6ec", boxShadow: "0 2px 10px rgba(0,0,0,0.04)" }}>
         <div className={`relative ${artH} overflow-hidden`}>
           <div className="absolute inset-0 transition-transform duration-700 group-hover:scale-110">
-            <ChapterArt id={c.id} accent={c.accent} />
+            <GuideArt id={c.id} accent={c.accent} img={c.img} />
           </div>
           <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
             style={{ background: "rgba(255,255,255,0.92)", color: c.accent }}>{c.tag}</span>

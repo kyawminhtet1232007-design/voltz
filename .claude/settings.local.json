@@ -209,7 +209,10 @@
       "Bash(git commit -q -m 'Community: link-based private team servers \\(no more guessable codes\\) *)",
       "Bash(awk -F: '$1>9418 && $1<10500')",
       "Bash(git commit -q -m 'Community: message reactions + emoji picker *)",
-      "Bash(curl -sI \"https://excalidraw.com/\")"
+      "Bash(curl -sI \"https://excalidraw.com/\")",
+      "Bash(awk -F: '$1>9990 && $1<10120')",
+      "Bash(open /Users/kyaw/Downloads/PassionPrj/frontend/public/)",
+      "Bash(sips -g pixelWidth -g pixelHeight guide-game.png guide-design.png)"
     ]
   }
 }
