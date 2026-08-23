@@ -9326,12 +9326,54 @@ function MediaAttachment({ data }) {
   return null;
 }
 
+// ── Emoji picker ──────────────────────────────────────────────────────────
+// Curated, self-contained emoji set (no external library — CSP-safe). The first
+// six double as the quick-reaction bar shown on message hover.
+const QUICK_EMOJI = ["👍","❤️","😂","🎉","🔥","😮"];
+const EMOJI_SET = [
+  "😀","😃","😄","😁","😆","😅","😂","🤣","😊","🙂","😉","😍",
+  "😘","😎","🤩","🤔","😐","😴","😮","😯","😢","😭","😡","🥳",
+  "🤯","😅","🙃","😇","🤗","🫡","😤","🥲","👍","👎","👏","🙌",
+  "🙏","💪","🤝","👀","💯","🔥","⭐","✨","🎉","✅","❌","❤️",
+  "🧡","💛","💚","💙","💜","🤖","⚡","🏆","🚀","💡","📌","⚙️",
+];
+// A compact popover grid of emoji. `onPick(emoji)` fires on selection.
+function EmojiPicker({ onPick, onClose, dark, align = "left" }) {
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const away = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose?.(); };
+    document.addEventListener("mousedown", away);
+    const esc = (e) => e.key === "Escape" && onClose?.();
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, [onClose]);
+  return (
+    <div ref={ref} style={{ position:"absolute", bottom:"calc(100% + 6px)", [align]:0, zIndex:60,
+      width:264, maxHeight:210, overflowY:"auto", padding:8, borderRadius:14,
+      background: dark ? "#1c1c20" : "#ffffff", border:`1px solid ${dark ? "rgba(255,255,255,0.1)" : "#e5e7eb"}`,
+      boxShadow:"0 12px 40px rgba(0,0,0,0.28)", display:"grid", gridTemplateColumns:"repeat(8, 1fr)", gap:2 }}>
+      {EMOJI_SET.map((e, i) => (
+        <button key={e + i} onClick={() => onPick(e)} title={e}
+          style={{ fontSize:19, lineHeight:1, padding:"5px 0", borderRadius:8, border:"none", background:"transparent", cursor:"pointer", transition:"background 0.12s" }}
+          onMouseEnter={ev => ev.currentTarget.style.background = dark ? "rgba(255,255,255,0.08)" : "#f3f4f6"}
+          onMouseLeave={ev => ev.currentTarget.style.background = "transparent"}>
+          {e}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ── MessageRow ────────────────────────────────────────────────────────────
-function MessageRow({ msg, sameUser, isMine, onDelete, onJoinCall }) {
+function MessageRow({ msg, sameUser, isMine, onDelete, onJoinCall, reactions, myName, onToggleReaction }) {
   const [hov, setHov] = React.useState(false);
-  const T = chatColors(React.useContext(ChatThemeCtx));
+  const [pickerOpen, setPickerOpen] = React.useState(false);
+  const dark = React.useContext(ChatThemeCtx);
+  const T = chatColors(dark);
   const time = new Date(msg.created_at).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
   const isMedia = msg.share_type === "media";
+  // reactions = { "👍": [{username,rowId}], ... } for this message
+  const reactionEntries = reactions ? Object.entries(reactions).filter(([, list]) => list.length) : [];
   return (
     <div onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
       className="relative flex gap-3 px-2 rounded"
@@ -9360,12 +9402,55 @@ function MessageRow({ msg, sameUser, isMine, onDelete, onJoinCall }) {
         {msg.share_type && !isMedia && msg.share_data && (
           <ShareCard shareType={msg.share_type} shareData={msg.share_data} onJoinCall={onJoinCall}/>
         )}
+
+        {/* Reaction chips */}
+        {reactionEntries.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {reactionEntries.map(([emoji, list]) => {
+              const mine = list.some(r => r.username === myName);
+              return (
+                <button key={emoji} onClick={() => onToggleReaction(msg.id, emoji)}
+                  title={list.map(r => r.username).join(", ")}
+                  style={{ display:"flex", alignItems:"center", gap:4, padding:"1px 8px", height:24, borderRadius:12,
+                    fontSize:12, cursor:"pointer", transition:"all 0.12s",
+                    background: mine ? T.accentBg : (dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.035)"),
+                    border:`1px solid ${mine ? T.accentBorder : "transparent"}`,
+                    color: mine ? T.accentText : T.textMuted }}>
+                  <span style={{ fontSize:13 }}>{emoji}</span>
+                  <span style={{ fontWeight:600, fontVariantNumeric:"tabular-nums" }}>{list.length}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {isMine && hov && (
-        <button onClick={()=>onDelete(msg.id)}
-          className="absolute right-2 top-2 w-6 h-6 rounded flex items-center justify-center text-xs transition hover:text-red-500"
-          style={{ color:T.textMuted, background:T.deleteBtnBg }}>✕</button>
+      {/* Hover toolbar — quick react + add-reaction picker + delete */}
+      {(hov || pickerOpen) && (
+        <div className="absolute right-2 top-1 flex items-center gap-1" style={{ zIndex: pickerOpen ? 61 : 40 }}>
+          {QUICK_EMOJI.slice(0, 3).map(e => (
+            <button key={e} onClick={() => onToggleReaction(msg.id, e)} title={`React ${e}`}
+              className="w-6 h-6 rounded flex items-center justify-center transition hover:scale-110"
+              style={{ fontSize:13, background:T.deleteBtnBg }}>{e}</button>
+          ))}
+          <div className="relative">
+            <button onClick={() => setPickerOpen(o => !o)} title="Add reaction"
+              className="w-6 h-6 rounded flex items-center justify-center transition"
+              style={{ color:T.textMuted, background:T.deleteBtnBg }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+            </button>
+            {pickerOpen && (
+              <EmojiPicker dark={dark} align="right"
+                onPick={(e) => { onToggleReaction(msg.id, e); setPickerOpen(false); }}
+                onClose={() => setPickerOpen(false)} />
+            )}
+          </div>
+          {isMine && (
+            <button onClick={()=>onDelete(msg.id)} title="Delete"
+              className="w-6 h-6 rounded flex items-center justify-center text-xs transition hover:text-red-500"
+              style={{ color:T.textMuted, background:T.deleteBtnBg }}>✕</button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -9407,6 +9492,7 @@ function TeamChat() {
   const [members,      setMembers]      = React.useState([]);
   const [showMembers,  setShowMembers]  = React.useState(true);
   const [pendingFile,  setPendingFile]  = React.useState(null); // { file, previewUrl, mediaType }
+  const [emojiOpen,    setEmojiOpen]    = React.useState(false); // compose emoji picker
   const [uploadPct,    setUploadPct]    = React.useState(0);
   const [inCall,       setInCall]       = React.useState(false);
   const [livekitToken, setLivekitToken] = React.useState(null);
@@ -9603,7 +9689,9 @@ function TeamChat() {
       .on("postgres_changes", { event:"INSERT", schema:"public", table:"messages", filter:`channel=eq.${chKey}` },
         ({ new:msg }) => {
           setMessages(prev => [...prev, msg]);
-          setTimeout(()=> endRef.current?.scrollIntoView({ behavior:"smooth" }), 60);
+          // Reactions arrive as rows too — don't yank the view to the bottom for them.
+          if (msg.share_type !== "reaction")
+            setTimeout(()=> endRef.current?.scrollIntoView({ behavior:"smooth" }), 60);
         })
       // Refinement: log the subscription lifecycle — dropped realtime channels
       // previously froze the feed with zero diagnostic trail.
@@ -10080,6 +10168,40 @@ function TeamChat() {
   const myColor   = localStorage.getItem("chat_color") || CHAT_COLORS[3];
   const chInfo    = CHAT_CHANNELS.find(c=>c.id===channel);
   const isCommunity = serverId === PUBLIC_SERVER_ID;
+
+  // Reactions ride the same channel as messages (share_type "reaction"): aggregate
+  // them into a { msgId: { emoji: [{username,rowId}] } } map and keep them out of
+  // the rendered bubble list. Plain derivations (not hooks) — we're past the gate
+  // returns above, where a conditional hook would be illegal.
+  const reactionMap = {};
+  for (const m of messages) {
+    if (m.share_type !== "reaction" || !m.share_data) continue;
+    const { msgId, emoji } = m.share_data;
+    if (!msgId || !emoji) continue;
+    (reactionMap[msgId] ||= {});
+    (reactionMap[msgId][emoji] ||= []);
+    reactionMap[msgId][emoji].push({ username: m.username, rowId: m.id });
+  }
+  const renderedMessages = messages.filter(m => m.share_type !== "reaction");
+
+  // Toggle my reaction on a message. Adding relies on the realtime INSERT echo to
+  // appear (like a normal message); removing is optimistic since we don't subscribe
+  // to DELETE events (filtered deletes need REPLICA IDENTITY FULL).
+  const toggleReaction = async (msgId, emoji) => {
+    const sb = getSB();
+    if (!sb || !myName) return;
+    const mine = messages.find(m => m.share_type === "reaction" && m.username === myName
+      && m.share_data?.msgId === msgId && m.share_data?.emoji === emoji);
+    if (mine) {
+      setMessages(prev => prev.filter(m => m.id !== mine.id));
+      await sb.from("messages").delete().eq("id", mine.id);
+    } else {
+      await sb.from("messages").insert({
+        channel: `${serverId}_${channel}`, username: myName, color: myColor,
+        content: null, share_type: "reaction", share_data: { msgId, emoji },
+      });
+    }
+  };
   const visibleChannels = isCommunity
     ? CHAT_CHANNELS.filter(c => c.id === "general")
     : [...CHAT_CHANNELS, ...customChannels];
@@ -10352,7 +10474,7 @@ function TeamChat() {
             <NotebookView serverId={serverId} myName={myName} myColor={myColor} isAdmin={isAdmin}/>
           ) : (
           <div className="flex-1 overflow-y-auto" style={{ padding:"8px 0 4px", background:T.msgAreaBg }}>
-            {messages.length === 0 && (
+            {renderedMessages.length === 0 && (
               <div className="text-center py-16 px-6">
                 <div style={{ width:64, height:64, borderRadius:18, background:T.accentBg, border:`1px solid ${T.accentBorder}`, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px", color:T.accentText }}>
                   {CH_ICONS[channel]}
@@ -10361,10 +10483,12 @@ function TeamChat() {
                 <p style={{ color:T.textDim, fontSize:14 }}>{chInfo?.desc}. Start the conversation.</p>
               </div>
             )}
-            {messages.map((msg, i) => {
-              const prev = messages[i-1];
+            {renderedMessages.map((msg, i) => {
+              const prev = renderedMessages[i-1];
               const sameUser = prev && prev.username===msg.username && (new Date(msg.created_at)-new Date(prev.created_at)) < 300000;
-              return <MessageRow key={msg.id} msg={msg} sameUser={sameUser} isMine={msg.username===myName} onDelete={deleteMsg} onJoinCall={joinCall}/>;
+              return <MessageRow key={msg.id} msg={msg} sameUser={sameUser} isMine={msg.username===myName}
+                onDelete={deleteMsg} onJoinCall={joinCall}
+                reactions={reactionMap[msg.id]} myName={myName} onToggleReaction={toggleReaction}/>;
             })}
             <div ref={endRef}/>
           </div>
@@ -10478,6 +10602,18 @@ function TeamChat() {
               className="flex-1 outline-none text-sm bg-transparent"
               style={{ color:T.textSecond }}
             />
+            {/* Emoji button + picker */}
+            <div className="relative" style={{ flexShrink:0 }}>
+              <button onClick={()=>setEmojiOpen(o=>!o)} title="Emoji"
+                style={{ color:emojiOpen?T.accentText:T.textDim, background:"none", border:"none", cursor:"pointer", padding:2, display:"flex", alignItems:"center", transition:"color 0.15s" }}>
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+              </button>
+              {emojiOpen && (
+                <EmojiPicker dark={darkMode} align="right"
+                  onPick={(e)=>{ setInput(prev => prev + e); inpRef.current?.focus(); }}
+                  onClose={()=>setEmojiOpen(false)} />
+              )}
+            </div>
             <button onClick={send} disabled={(!input.trim() && !pendingFile) || sending}
               style={{ width:34, height:34, borderRadius:10, background:(input.trim()||pendingFile)?"linear-gradient(135deg,#ef4444,#dc2626)":T.sendBtnInactive, border:"none", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:(input.trim()||pendingFile)?"pointer":"default", transition:"all 0.2s", opacity:sending?0.5:1 }}>
               {sending

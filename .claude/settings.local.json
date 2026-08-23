@@ -206,7 +206,9 @@
       "Bash(awk -F: '$1>9327 && $1<9960')",
       "Bash(git commit -q -m 'Community: signed-in users auto-join with their account identity *)",
       "Bash(awk -F: '$1>12280 && $1<12420')",
-      "Bash(git commit -q -m 'Community: link-based private team servers \\(no more guessable codes\\) *)"
+      "Bash(git commit -q -m 'Community: link-based private team servers \\(no more guessable codes\\) *)",
+      "Bash(awk -F: '$1>9418 && $1<10500')",
+      "Bash(git commit -q -m 'Community: message reactions + emoji picker *)"
     ]
   }
 }
