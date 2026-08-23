@@ -9349,6 +9349,7 @@ function TeamChat() {
 
   const [error,      setError]      = React.useState("");
   const [ready,      setReady]      = React.useState(()=> !!(localStorage.getItem("chat_name") && localStorage.getItem("chat_server_id")));
+  const autoJoinedRef = React.useRef(false); // guards the signed-in auto-join-Community effect
   const [serverId,   setServerId]   = React.useState(()=> localStorage.getItem("chat_server_id") || "");
   const [serverName, setServerName] = React.useState(()=> localStorage.getItem("chat_server_name") || "Team Hub");
   const [channel,  setChannel]  = React.useState("general");
@@ -9945,6 +9946,7 @@ function TeamChat() {
   };
 
   const disconnect = () => {
+    autoJoinedRef.current = true; // a manual leave shouldn't be auto-undone this session
     presenceRef.current?.untrack();
     presenceRef.current?.unsubscribe();
     presenceRef.current = null;
@@ -9960,6 +9962,22 @@ function TeamChat() {
     setReady(false);
     setMessages([]);
   };
+
+  // Signed-in users who already picked a username (at sign-up) shouldn't be asked
+  // to name themselves a second time — drop them straight into the public Community
+  // using their account identity. They can still open a private Team Server via the
+  // "Leave server" control (which returns them to the full setup screen). The ref
+  // guard means a manual disconnect this session is respected and not auto-undone.
+  React.useEffect(() => {
+    if (ready || !user || autoJoinedRef.current) return;
+    const m = user.user_metadata || {};
+    const uname = m.username || m.chat_name || localStorage.getItem("chat_name");
+    if (!uname || !uname.trim()) return; // no identity yet → let SetupScreen collect one
+    autoJoinedRef.current = true;
+    const color = m.chat_color || localStorage.getItem("chat_color") || CHAT_COLORS[0];
+    handleSetup({ serverId: PUBLIC_SERVER_ID, serverName: "Voltz Community", name: uname.trim(), color });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, user]);
 
   // Gate: the Community requires a signed-in account (one account = one identity).
   if (!user) return (
@@ -9982,11 +10000,24 @@ function TeamChat() {
     </div>
   );
 
-  if (!ready) return (
-    <ChatThemeCtx.Provider value={darkMode}>
-      <SetupScreen onSetup={handleSetup} error={error} darkMode={darkMode} toggleTheme={toggleTheme} defaultName={accountName}/>
-    </ChatThemeCtx.Provider>
-  );
+  if (!ready) {
+    // If we're about to auto-join the Community (signed-in user with an identity,
+    // not a manual leave), show a brief veil instead of flashing the setup form.
+    const willAutoJoin = !autoJoinedRef.current && !!(user.user_metadata?.username || user.user_metadata?.chat_name || localStorage.getItem("chat_name"));
+    if (willAutoJoin) return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3" style={{ background: darkMode ? DARK_PAGE_BG : LIGHT_PAGE_BG }}>
+        <div className="w-14 h-14 rounded-full overflow-hidden" style={{ background: "radial-gradient(circle at 50% 32%, #2b2e35, #141519)", animation: "floatIdleSpin 1.6s ease-in-out infinite" }}>
+          <VoltLogo size={56} />
+        </div>
+        <p style={{ color: darkMode ? "#a1a1aa" : "#6e6e73", fontSize: 13 }}>Joining the Community…</p>
+      </div>
+    );
+    return (
+      <ChatThemeCtx.Provider value={darkMode}>
+        <SetupScreen onSetup={handleSetup} error={error} darkMode={darkMode} toggleTheme={toggleTheme} defaultName={accountName}/>
+      </ChatThemeCtx.Provider>
+    );
+  }
 
   const myName    = localStorage.getItem("chat_name");
   const myColor   = localStorage.getItem("chat_color") || CHAT_COLORS[3];

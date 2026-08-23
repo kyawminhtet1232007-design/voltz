@@ -200,7 +200,11 @@
       "Bash(awk -F: '$1>9327 && $1<10450')",
       "Bash(awk -F: '$1>9327 && $1<10720')",
       "Bash(awk -F: '$1>9000 && $1<10720')",
-      "Bash(git commit -q -m 'Community polish: glossy avatars + hover timestamps + Voltz copy *)"
+      "Bash(git commit -q -m 'Community polish: glossy avatars + hover timestamps + Voltz copy *)",
+      "Bash(awk -F: '$1>9327 && $1<9720')",
+      "Bash(awk -F: '$1>9327 && $1<10100')",
+      "Bash(awk -F: '$1>9327 && $1<9960')",
+      "Bash(git commit -q -m 'Community: signed-in users auto-join with their account identity *)"
     ]
   }
 }
