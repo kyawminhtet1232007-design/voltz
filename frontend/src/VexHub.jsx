@@ -10268,7 +10268,26 @@ function TeamChat() {
     } catch {}
   };
   const stopRecording = () => { recorderRef.current?.stop(); };
-  const openWhiteboard = () => { window.open(`https://www.tldraw.com/r/vexhub-${serverId}`, "_blank"); };
+  // Open a shared collaborative whiteboard for this server. Excalidraw rooms are
+  // identified by `#room=<20-hex-id>,<128-bit base64url key>`; deriving both
+  // deterministically from serverId means everyone in the server (with the invite)
+  // lands in the same board — no backend, no account. (tldraw's old /r/ auto-rooms
+  // were discontinued — that URL now 404s, which is why the button did nothing.)
+  const openWhiteboard = async () => {
+    let url = "https://excalidraw.com";
+    try {
+      const enc = new TextEncoder();
+      const idBuf  = await crypto.subtle.digest("SHA-256", enc.encode("voltz-wb-id:"  + serverId));
+      const keyBuf = await crypto.subtle.digest("SHA-256", enc.encode("voltz-wb-key:" + serverId));
+      const roomId = Array.from(new Uint8Array(idBuf).slice(0, 10), b => b.toString(16).padStart(2, "0")).join("");
+      const keyB64 = btoa(String.fromCharCode(...new Uint8Array(keyBuf).slice(0, 16)))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      url = `https://excalidraw.com/#room=${roomId},${keyB64}`;
+    } catch (e) {
+      chatLog.warn("whiteboard room derivation failed — opening a blank board", { msg: e?.message });
+    }
+    window.open(url, "_blank", "noopener");
+  };
 
   const addChannel = async () => {
     const label = newChName.trim();
