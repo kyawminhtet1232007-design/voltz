@@ -9134,7 +9134,7 @@ function SetupScreen({ onSetup, error, darkMode, toggleTheme, defaultName }) {
 
         {/* Header */}
         <div className="text-center mb-7">
-          <div style={{ width:58, height:58, borderRadius:18, overflow:"hidden", background:"radial-gradient(circle at 50% 32%, #2b2e35, #141519)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px", boxShadow:"0 8px 24px rgba(220,38,38,0.35)" }}>
+          <div style={{ width:58, height:58, borderRadius:"50%", overflow:"hidden", background:"radial-gradient(circle at 50% 32%, #2b2e35, #141519)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px", boxShadow:"0 8px 24px rgba(220,38,38,0.35)" }}>
             <VoltLogo size={58} />
           </div>
           <h2 style={{ color:ST.textPrimary, fontWeight:800, fontSize:22, marginBottom:4 }}>Voltz Community</h2>
