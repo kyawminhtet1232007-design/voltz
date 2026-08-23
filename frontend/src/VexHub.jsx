@@ -8002,6 +8002,29 @@ function PracticeCalendar({ store, update }) {
 
 const PUBLIC_SERVER_ID = "VEXHUB";
 
+// A private team server is identified by a long, unguessable token (not a short
+// typeable code), so the only way in is an invite link someone shares with you —
+// nobody can guess a code and wander in. ~18 base-36 chars ≈ 36^18 possibilities.
+function genServerToken() {
+  const a = new Uint32Array(4);
+  (globalThis.crypto || window.crypto).getRandomValues(a);
+  const raw = Array.from(a, n => n.toString(36)).join("").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return ("T" + raw).slice(0, 18).padEnd(18, "0"); // leading T marks a link-invite server
+}
+// Build the shareable invite URL for a server token (origin + ?invite=TOKEN).
+function inviteLink(serverId) {
+  const origin = (typeof window !== "undefined" && window.location?.origin) || "";
+  return `${origin}/?invite=${serverId}`;
+}
+// Pull a server token out of whatever the user pasted — a full invite URL or a
+// bare token. Uppercased; non-alphanumerics stripped.
+function parseInvite(text) {
+  if (!text) return "";
+  const m = String(text).match(/[?&]invite=([^&\s]+)/i);
+  const raw = m ? m[1] : text;
+  return raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
 // ── NotebookView ──────────────────────────────────────────────────────────
 const NB_SECTIONS = [
   { id:"design",      label:"Design",      color:"#3b82f6" },
@@ -9057,7 +9080,8 @@ function NameColorFields({ name, setName, col, setCol, onSubmit }) {
 function SetupScreen({ onSetup, error, darkMode, toggleTheme, defaultName }) {
   const [tab,        setTab]        = React.useState("community"); // "community" | "team"
   const [teamMode,   setTeamMode]   = React.useState("create");    // "create" | "join"
-  const [serverCode, setServerCode] = React.useState("");
+  const [newServerName, setNewServerName] = React.useState("");    // create: the server's name
+  const [inviteText, setInviteText] = React.useState("");          // join: pasted invite link/token
   // Default the display name from the signed-in account (their saved chat name or
   // Google name / email), so identity is anchored to the account, not typed fresh.
   const [name,       setName]       = React.useState(localStorage.getItem("chat_name") || defaultName || "");
@@ -9071,11 +9095,19 @@ function SetupScreen({ onSetup, error, darkMode, toggleTheme, defaultName }) {
   };
 
   const handleTeam = () => {
-    const sid = serverCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-    if (!sid)         { setLocalErr(teamMode==="create" ? "Enter a server code." : "Enter the invite code."); return; }
     if (!name.trim()) { setLocalErr("Enter your display name."); return; }
-    setLocalErr("");
-    onSetup({ serverId: sid, serverName: sid, name: name.trim(), color: col, isCreator: teamMode === "create" });
+    if (teamMode === "create") {
+      const sname = newServerName.trim();
+      if (!sname) { setLocalErr("Name your server."); return; }
+      setLocalErr("");
+      // Generate a private, unguessable token — the invite link is the only way in.
+      onSetup({ serverId: genServerToken(), serverName: sname, name: name.trim(), color: col, isCreator: true });
+    } else {
+      const sid = parseInvite(inviteText);
+      if (!sid) { setLocalErr("Paste the invite link you were given."); return; }
+      setLocalErr("");
+      onSetup({ serverId: sid, serverName: "", name: name.trim(), color: col, isCreator: false });
+    }
   };
 
   const handleSubmit = tab === "community" ? handleCommunity : handleTeam;
@@ -9137,7 +9169,7 @@ function SetupScreen({ onSetup, error, darkMode, toggleTheme, defaultName }) {
               {/* Create / Join sub-toggle */}
               <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: darkMode ? "#141416" : "#f3f4f6" }}>
                 {[["create","Create"],["join","Join"]].map(([id,lbl])=>(
-                  <button key={id} onClick={()=>{ setTeamMode(id); setLocalErr(""); setServerCode(""); }}
+                  <button key={id} onClick={()=>{ setTeamMode(id); setLocalErr(""); setNewServerName(""); setInviteText(""); }}
                     className="flex-1 py-1.5 rounded-md text-xs font-semibold transition"
                     style={{ background:teamMode===id?ST.accentBg:"transparent", color:teamMode===id?ST.accentText:ST.textMuted }}>
                     {lbl} a Server
@@ -9145,18 +9177,31 @@ function SetupScreen({ onSetup, error, darkMode, toggleTheme, defaultName }) {
                 ))}
               </div>
 
-              <div>
-                <label style={{ color:ST.textMuted, fontSize:11, fontWeight:700, letterSpacing:"0.07em", display:"block", marginBottom:7 }}>SERVER CODE</label>
-                <input value={serverCode}
-                  onChange={e=>setServerCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,""))}
-                  onKeyDown={e=>e.key==="Enter"&&handleTeam()}
-                  placeholder=""
-                  style={{...inp, fontFamily:"monospace", fontSize:18, letterSpacing:"0.18em", textAlign:"center", fontWeight:700}}
-                  maxLength={12}/>
-                <p style={{ color:ST.textDim, fontSize:11, marginTop:5 }}>
-                  {teamMode==="create" ? "Pick a code — teammates enter this to join your private server." : "Enter the code your team admin shared with you."}
-                </p>
-              </div>
+              {teamMode === "create" ? (
+                <div>
+                  <label style={{ color:ST.textMuted, fontSize:11, fontWeight:700, letterSpacing:"0.07em", display:"block", marginBottom:7 }}>SERVER NAME</label>
+                  <input value={newServerName}
+                    onChange={e=>setNewServerName(e.target.value)}
+                    onKeyDown={e=>e.key==="Enter"&&handleTeam()}
+                    placeholder="e.g. Team 8059 Pit"
+                    style={inp} maxLength={40}/>
+                  <p style={{ color:ST.textDim, fontSize:11, marginTop:5 }}>
+                    Private &amp; invite-only. You'll get a share link once it's created — only people with the link can join.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label style={{ color:ST.textMuted, fontSize:11, fontWeight:700, letterSpacing:"0.07em", display:"block", marginBottom:7 }}>INVITE LINK</label>
+                  <input value={inviteText}
+                    onChange={e=>setInviteText(e.target.value)}
+                    onKeyDown={e=>e.key==="Enter"&&handleTeam()}
+                    placeholder="Paste the invite link…"
+                    style={inp}/>
+                  <p style={{ color:ST.textDim, fontSize:11, marginTop:5 }}>
+                    Tip: clicking an invite link joins the server automatically — you only need this to paste one by hand.
+                  </p>
+                </div>
+              )}
 
               <NameColorFields name={name} setName={setName} col={col} setCol={setCol} onSubmit={handleSubmit}/>
             </>
@@ -9184,7 +9229,7 @@ function SetupScreen({ onSetup, error, darkMode, toggleTheme, defaultName }) {
             <div>
               <p style={{ color:ST.textPrimary, fontSize:13, fontWeight:700 }}>{name.trim()}</p>
               <p style={{ color:ST.onlineText, fontSize:11 }}>
-                {tab==="community" ? "Joining Voltz Community" : serverCode ? `Joining server: ${serverCode}` : "Ready to join"}
+                {tab==="community" ? "Joining Voltz Community" : teamMode==="create" ? (newServerName.trim() ? `Creating: ${newServerName.trim()}` : "New private server") : (inviteText.trim() ? "Joining via invite" : "Ready to join")}
               </p>
             </div>
           </div>
@@ -9419,10 +9464,11 @@ function TeamChat() {
     chatLog.debug("handleSetup:enter", { sid, isCreator: !!isCreator }); // entry trace
     if (!name.trim()) { setError("Enter your display name."); return; }
     const sb = getSB(); // warm up singleton
+    let resolvedName = ""; // real server name pulled from server_config (for link-joiners)
     if (sid !== PUBLIC_SERVER_ID && sb) {
       // A team server "exists" iff its server_config record exists (written at creation).
       const { data, error: qErr } = await sb.from("messages")
-        .select("id")
+        .select("id, share_data")
         .eq("channel", `${sid}_sys`)
         .eq("share_type", "server_config")
         .limit(1);
@@ -9433,13 +9479,15 @@ function TeamChat() {
       } else {
         const check = validateServerChoice(!!isCreator, (data?.length ?? 0) > 0);
         if (!check.ok) {
-          setError(check.error);
+          // For a join, this means the invite is invalid/expired — say so plainly.
+          setError(isCreator ? check.error : "That invite link is invalid or the server no longer exists.");
           chatLog.info("handleSetup:rejected", { sid, isCreator: !!isCreator, reason: check.error }); // exit trace (rejection path)
           return;
         }
+        resolvedName = data?.[0]?.share_data?.name || "";
       }
     }
-    const sn = sname || "Team Hub";
+    const sn = sname || resolvedName || "Team Server";
     localStorage.setItem("chat_server_id",   sid);
     localStorage.setItem("chat_server_name", sn);
     localStorage.setItem("chat_name",  name.trim());
@@ -9462,7 +9510,7 @@ function TeamChat() {
         color,
         content:    null,
         share_type: "server_config",
-        share_data: { admin: name.trim(), createdAt: new Date().toISOString() },
+        share_data: { admin: name.trim(), name: sn, createdAt: new Date().toISOString() },
       });
     }
     setReady(true);
@@ -9975,7 +10023,16 @@ function TeamChat() {
     if (!uname || !uname.trim()) return; // no identity yet → let SetupScreen collect one
     autoJoinedRef.current = true;
     const color = m.chat_color || localStorage.getItem("chat_color") || CHAT_COLORS[0];
-    handleSetup({ serverId: PUBLIC_SERVER_ID, serverName: "Voltz Community", name: uname.trim(), color });
+    // If the page was opened from an invite link (?invite=TOKEN), join THAT server;
+    // otherwise drop into the public Community. Clean the token out of the URL so a
+    // later refresh doesn't force a re-join.
+    const invite = parseInvite(new URLSearchParams(window.location.search).get("invite") || "");
+    if (invite && invite !== PUBLIC_SERVER_ID) {
+      try { window.history.replaceState({}, "", window.location.pathname); } catch { /* ignore */ }
+      handleSetup({ serverId: invite, serverName: "", name: uname.trim(), color, isCreator: false });
+    } else {
+      handleSetup({ serverId: PUBLIC_SERVER_ID, serverName: "Voltz Community", name: uname.trim(), color });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, user]);
 
@@ -10028,7 +10085,7 @@ function TeamChat() {
     : [...CHAT_CHANNELS, ...customChannels];
 
   const copyCode = () => {
-    navigator.clipboard.writeText(serverId).then(()=>{ setCodeCopied(true); setTimeout(()=>setCodeCopied(false), 2000); });
+    navigator.clipboard.writeText(inviteLink(serverId)).then(()=>{ setCodeCopied(true); setTimeout(()=>setCodeCopied(false), 2000); });
   };
 
   const startRecording = async () => {
@@ -10180,22 +10237,22 @@ function TeamChat() {
         })}
       </div>
 
-      {/* Invite code — team servers only */}
+      {/* Invite link — team servers only */}
       {!isCommunity && (
         <div style={{ padding:"12px 14px", borderTop:`1px solid ${T.border}` }}>
-          <p style={{ color:T.textLabel, fontSize:10, fontWeight:700, letterSpacing:"0.07em", marginBottom:8 }}>INVITE CODE</p>
-          <div style={{ background:T.inviteCodeBg, borderRadius:10, padding:"10px 12px", marginBottom:8, border:`1px solid ${T.accentBorder}` }}>
-            <p style={{ fontFamily:"monospace", fontSize:20, fontWeight:800, color:T.inviteCode, letterSpacing:"0.2em", textAlign:"center" }}>{serverId}</p>
+          <p style={{ color:T.textLabel, fontSize:10, fontWeight:700, letterSpacing:"0.07em", marginBottom:8 }}>INVITE LINK</p>
+          <div style={{ background:T.inviteCodeBg, borderRadius:10, padding:"9px 11px", marginBottom:8, border:`1px solid ${T.accentBorder}` }}>
+            <p style={{ fontFamily:"monospace", fontSize:11, color:T.inviteCode, textAlign:"center", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{inviteLink(serverId)}</p>
           </div>
           <button onClick={copyCode}
             style={{ width:"100%", padding:"7px", background:codeCopied?"rgba(74,222,128,0.08)":T.inviteCopyBg, border:`1px solid ${codeCopied?"rgba(74,222,128,0.3)":T.inviteCopyBd}`, borderRadius:8, color:codeCopied?T.onlineText:T.accentText, fontSize:12, fontWeight:600, cursor:"pointer", transition:"all 0.2s", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
             {codeCopied ? (
-              <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>Copied!</>
+              <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>Link copied!</>
             ) : (
-              <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy &amp; Share</>
+              <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Copy invite link</>
             )}
           </button>
-          <p style={{ color:T.textDim, fontSize:10, marginTop:6, textAlign:"center" }}>Share this with teammates to join</p>
+          <p style={{ color:T.textDim, fontSize:10, marginTop:6, textAlign:"center" }}>Anyone with this link can join — only people you send it to.</p>
         </div>
       )}
 
@@ -12378,10 +12435,13 @@ export default function VexLearningHub() {
 }
 
 function VexLearningHubInner() {
-  const [currentPage, setCurrentPage] = useState("home");
+  // Opening an invite link (?invite=TOKEN) lands the visitor straight on the
+  // Community page, where TeamChat reads the same token and auto-joins the server.
+  const hasInvite = typeof window !== "undefined" && /[?&]invite=/.test(window.location.search);
+  const [currentPage, setCurrentPage] = useState(hasInvite ? "community" : "home");
   // navPage updates synchronously so the clicked tab highlights instantly,
   // even while the heavy page render is still in flight in the transition.
-  const [navPage, setNavPage] = useState("home");
+  const [navPage, setNavPage] = useState(hasInvite ? "community" : "home");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [lessonsNonce, setLessonsNonce] = useState(0);
   const { user } = useAuth();
