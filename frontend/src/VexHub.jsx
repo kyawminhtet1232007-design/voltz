@@ -11401,9 +11401,11 @@ function Resources() {
   if (!openGuide) {
     const Tile = ({ c, artH = "h-36", big = false, className = "" }) => (
       <button onClick={() => goTo(c.id)}
-        className={`group text-left rounded-3xl overflow-hidden bg-white transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl ${className}`}
+        className={`group text-left rounded-3xl overflow-hidden bg-white transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl flex flex-col ${className}`}
         style={{ border: "1px solid #e6e6ec", boxShadow: "0 2px 10px rgba(0,0,0,0.04)" }}>
-        <div className={`relative ${artH} overflow-hidden`}>
+        {/* Featured tile spans 2 rows — let the art grow to fill so there's no
+            empty strip above the photo; small tiles keep their fixed height. */}
+        <div className={`relative overflow-hidden ${big ? "flex-1 min-h-[14rem] sm:min-h-[18rem]" : artH}`}>
           <div className="absolute inset-0 transition-transform duration-700 group-hover:scale-110">
             <GuideArt id={c.id} accent={c.accent} img={c.img} imgPos={c.imgPos} />
           </div>
