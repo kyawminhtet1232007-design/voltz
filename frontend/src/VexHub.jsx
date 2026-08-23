@@ -11139,21 +11139,17 @@ function TeamChat() {
 // Guide card art: shows the real photo (`img`) when it loads, and falls back to
 // the illustrated ChapterArt panel if no photo is set or the file is missing —
 // so dropping a JPG into /public makes the photo appear with zero code changes.
-function GuideArt({ id, accent, img }) {
+function GuideArt({ id, accent, img, imgPos = "center" }) {
   const [failed, setFailed] = React.useState(false);
   return (
     <>
       <ChapterArt id={id} accent={accent} />
       {img && !failed && (
-        <div className="absolute inset-0">
-          {/* Blurred, zoomed copy fills the panel with the photo's own colours so
-              the aspect-ratio mismatch never shows empty bars… */}
-          <img src={img} aria-hidden="true" draggable={false}
-            className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-70" />
-          {/* …while the sharp copy is fully contained — nothing gets cropped. */}
-          <img src={img} alt="" draggable={false} onError={() => setFailed(true)}
-            className="absolute inset-0 w-full h-full object-contain" />
-        </div>
+        // Full-bleed: the photo fills the whole panel edge-to-edge (no bars).
+        // `imgPos` keeps the important part of each photo in frame.
+        <img src={img} alt="" draggable={false} onError={() => setFailed(true)}
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ objectPosition: imgPos }} />
       )}
     </>
   );
@@ -11339,7 +11335,7 @@ function Resources() {
   // guide at a time. `openGuide` null → hub. Voltz is woven in as an interactive
   // explainer — "Ask Voltz" buttons dispatch `voltz-ask` (handled by FloatingChat).
   const CHAPTERS = [
-    { id:"game",    label:"Override 2026–27", num:"01", title:"Know the game.",       desc:"Rules, scoring, field elements, and penalties for the 2026–27 season — everything you need before your first match.", accent:"#dc2626", tag:"Game manual", img:"/guide-game.png",
+    { id:"game",    label:"Override 2026–27", num:"01", title:"Know the game.",       desc:"Rules, scoring, field elements, and penalties for the 2026–27 season — everything you need before your first match.", accent:"#dc2626", tag:"Game manual", img:"/guide-game.png", imgPos:"center 62%",
       stats:["18 rules & values","6 field elements"], tip:"Not sure how Pins score? I can walk through any rule in here with a worked example.", ask:"Explain how Pin scoring works in VEX Override with an example" },
     { id:"cppref",  label:"C++ Quick Ref",    num:"02", title:"Speak fluent C++.",    desc:"The VEXcode API and the core language constructs, condensed into one glanceable reference.", accent:"#2563eb", tag:"API & syntax", img:"/guide-cpp.jpg",
       stats:["40+ API calls","12 core patterns"], tip:"I can explain any function on this page — or write working example code for your robot.", ask:"Show me an example VEXcode C++ drive program using motor groups" },
@@ -11409,7 +11405,7 @@ function Resources() {
         style={{ border: "1px solid #e6e6ec", boxShadow: "0 2px 10px rgba(0,0,0,0.04)" }}>
         <div className={`relative ${artH} overflow-hidden`}>
           <div className="absolute inset-0 transition-transform duration-700 group-hover:scale-110">
-            <GuideArt id={c.id} accent={c.accent} img={c.img} />
+            <GuideArt id={c.id} accent={c.accent} img={c.img} imgPos={c.imgPos} />
           </div>
           <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
             style={{ background: "rgba(255,255,255,0.92)", color: c.accent }}>{c.tag}</span>
