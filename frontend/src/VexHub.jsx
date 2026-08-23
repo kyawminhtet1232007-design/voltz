@@ -9067,7 +9067,7 @@ function SetupScreen({ onSetup, error, darkMode, toggleTheme, defaultName }) {
   const handleCommunity = () => {
     if (!name.trim()) { setLocalErr("Enter your display name."); return; }
     setLocalErr("");
-    onSetup({ serverId: PUBLIC_SERVER_ID, serverName: "VEX Hub Community", name: name.trim(), color: col });
+    onSetup({ serverId: PUBLIC_SERVER_ID, serverName: "Voltz Community", name: name.trim(), color: col });
   };
 
   const handleTeam = () => {
@@ -9178,13 +9178,13 @@ function SetupScreen({ onSetup, error, darkMode, toggleTheme, defaultName }) {
         {/* Live preview */}
         {name.trim() && (
           <div className="flex items-center gap-3 mt-6 pt-5" style={{ borderTop:`1px solid ${ST.border}` }}>
-            <div style={{ width:38, height:38, borderRadius:"50%", background:col, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:`0 0 0 3px rgba(220,38,38,0.15)` }}>
-              <span style={{ color:"#fff", fontWeight:800, fontSize:15 }}>{name.trim()[0].toUpperCase()}</span>
+            <div style={{ width:38, height:38, borderRadius:"50%", background:`radial-gradient(circle at 35% 28%, rgba(255,255,255,0.4), rgba(255,255,255,0) 58%), ${col}`, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:`inset 0 0 0 1px rgba(255,255,255,0.14), 0 0 0 3px rgba(220,38,38,0.15)` }}>
+              <span style={{ color:"#fff", fontWeight:800, fontSize:15, textShadow:"0 1px 2px rgba(0,0,0,0.25)" }}>{name.trim()[0].toUpperCase()}</span>
             </div>
             <div>
               <p style={{ color:ST.textPrimary, fontSize:13, fontWeight:700 }}>{name.trim()}</p>
               <p style={{ color:ST.onlineText, fontSize:11 }}>
-                {tab==="community" ? "Joining VEX Hub Community" : serverCode ? `Joining server: ${serverCode}` : "Ready to join"}
+                {tab==="community" ? "Joining Voltz Community" : serverCode ? `Joining server: ${serverCode}` : "Ready to join"}
               </p>
             </div>
           </div>
@@ -9292,10 +9292,14 @@ function MessageRow({ msg, sameUser, isMine, onDelete, onJoinCall }) {
       className="relative flex gap-3 px-2 rounded"
       style={{ paddingTop:sameUser?2:16, paddingBottom:2, background:hov?T.hoverBg:"transparent" }}>
       {!sameUser ? (
-        <div style={{ width:40, height:40, borderRadius:"50%", background:msg.color, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", marginTop:2 }}>
-          <span className="text-white font-bold text-sm">{msg.username[0]?.toUpperCase()}</span>
+        <div style={{ width:40, height:40, borderRadius:"50%", background:`radial-gradient(circle at 35% 28%, rgba(255,255,255,0.4), rgba(255,255,255,0) 58%), ${msg.color}`, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", marginTop:2, boxShadow:"inset 0 0 0 1px rgba(255,255,255,0.14), 0 1px 3px rgba(0,0,0,0.18)" }}>
+          <span className="text-white font-bold text-sm" style={{ textShadow:"0 1px 2px rgba(0,0,0,0.25)" }}>{msg.username[0]?.toUpperCase()}</span>
         </div>
-      ) : <div style={{ width:40, flexShrink:0 }}/>}
+      ) : (
+        <div style={{ width:40, flexShrink:0, display:"flex", justifyContent:"center", alignItems:"flex-start", paddingTop:1 }}>
+          {hov && <span style={{ color:T.textTime, fontSize:9.5, lineHeight:"18px", fontVariantNumeric:"tabular-nums" }}>{time}</span>}
+        </div>
+      )}
 
       <div className="flex-1 min-w-0">
         {!sameUser && (
@@ -10294,8 +10298,8 @@ function TeamChat() {
                   const MemberRow = ({ m, dim }) => (
                     <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg">
                       <div style={{ position:"relative", flexShrink:0 }}>
-                        <div style={{ width:28, height:28, borderRadius:"50%", background:m.color, opacity:dim?0.55:1, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                          <span style={{ color:"#fff", fontSize:11, fontWeight:700 }}>{m.name?.[0]?.toUpperCase()}</span>
+                        <div style={{ width:28, height:28, borderRadius:"50%", background:`radial-gradient(circle at 35% 28%, rgba(255,255,255,0.4), rgba(255,255,255,0) 58%), ${m.color}`, opacity:dim?0.55:1, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"inset 0 0 0 1px rgba(255,255,255,0.14)" }}>
+                          <span style={{ color:"#fff", fontSize:11, fontWeight:700, textShadow:"0 1px 2px rgba(0,0,0,0.25)" }}>{m.name?.[0]?.toUpperCase()}</span>
                         </div>
                         <div style={{ position:"absolute", bottom:0, right:0, width:9, height:9, borderRadius:"50%", background:m.status==="dnd"?"#ef4444":"#4ade80", border:`2px solid ${T.memberStatusBorder}` }}/>
                       </div>
