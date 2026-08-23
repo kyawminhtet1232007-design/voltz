@@ -9532,6 +9532,9 @@ function TeamChat() {
   const inpRef  = React.useRef(null);
   const fileRef = React.useRef(null);
   const lastSendRef = React.useRef(0);
+  const typingChanRef   = React.useRef(null); // realtime broadcast channel for "X is typing…"
+  const lastTypingRef   = React.useRef(0);    // throttle for outgoing typing pings
+  const [typingMap, setTypingMap] = React.useState({}); // { name: lastSeenTs }
 
   // Must be called unconditionally (before any early return) — Rules of Hooks
   const uniqueMembers = React.useMemo(() => {
@@ -9736,6 +9739,30 @@ function TeamChat() {
     return () => { pCh.untrack(); pCh.unsubscribe(); };
   }, [ready, serverId]);
 
+  // Typing indicators — ephemeral realtime broadcast, scoped per channel. No DB.
+  React.useEffect(() => {
+    if (!ready || !serverId) return;
+    const sb = getSB();
+    if (!sb) return;
+    setTypingMap({});
+    const ch = sb.channel(`typing:${serverId}_${channel}`, { config: { broadcast: { self: false } } });
+    ch.on("broadcast", { event: "typing" }, ({ payload }) => {
+      const me = localStorage.getItem("chat_name");
+      if (!payload?.name || payload.name === me) return;
+      setTypingMap(prev => ({ ...prev, [payload.name]: Date.now() }));
+    }).subscribe();
+    typingChanRef.current = ch;
+    // Prune stale typers (no ping in 3.5s → they stopped / sent).
+    const iv = setInterval(() => {
+      setTypingMap(prev => {
+        const now = Date.now(); let changed = false; const next = {};
+        for (const [n, t] of Object.entries(prev)) { if (now - t < 3500) next[n] = t; else changed = true; }
+        return changed ? next : prev;
+      });
+    }, 1000);
+    return () => { clearInterval(iv); ch.unsubscribe(); typingChanRef.current = null; };
+  }, [ready, serverId, channel]);
+
   // Update tracked status when user toggles online/dnd
   React.useEffect(() => {
     if (!presenceRef.current || !ready) return;
@@ -9931,12 +9958,21 @@ function TeamChat() {
     inpRef.current?.focus();
   };
 
+  // Broadcast a throttled "I'm typing" ping (called on keystrokes). Ephemeral.
+  const pingTyping = () => {
+    const now = Date.now();
+    if (now - lastTypingRef.current < 1400) return;
+    lastTypingRef.current = now;
+    typingChanRef.current?.send({ type: "broadcast", event: "typing", payload: { name: localStorage.getItem("chat_name") } });
+  };
+
   const send = async () => {
     if (pendingFile) { sendMedia(); return; }
     const text = input.trim();
     if (!text || sending) return;
     const sb = getSB();
     if (!sb) return;
+    lastTypingRef.current = 0; // let the next keystroke re-broadcast immediately after sending
 
     // Rate limit: avoid message spam
     const now = Date.now();
@@ -10551,6 +10587,23 @@ function TeamChat() {
         <div style={{ padding:"0 16px 20px", flexShrink:0, background:T.outerBg }}>
           {error && <p style={{ color:T.errorText, fontSize:11, marginBottom:6 }}>{error}</p>}
 
+          {/* Typing indicator */}
+          {(() => {
+            const names = Object.keys(typingMap).filter(n => n && n !== myName);
+            if (!names.length) return null;
+            const label = names.length === 1 ? `${names[0]} is typing`
+              : names.length === 2 ? `${names[0]} and ${names[1]} are typing`
+              : "Several people are typing";
+            return (
+              <div style={{ display:"flex", alignItems:"center", gap:7, height:18, marginBottom:5, color:T.accentText }}>
+                <span style={{ display:"inline-flex", gap:3 }} aria-hidden="true">
+                  <span className="typing-dot"/><span className="typing-dot"/><span className="typing-dot"/>
+                </span>
+                <span style={{ color:T.textMuted, fontSize:11 }}>{label}…</span>
+              </div>
+            );
+          })()}
+
           {/* File preview strip */}
           {pendingFile && (
             <div style={{ marginBottom:8 }}>
@@ -10596,7 +10649,7 @@ function TeamChat() {
             <input
               ref={inpRef}
               value={input}
-              onChange={e=>setInput(e.target.value)}
+              onChange={e=>{ setInput(e.target.value); if (e.target.value.trim()) pingTyping(); }}
               onKeyDown={e=>e.key==="Enter" && !e.shiftKey && send()}
               placeholder={pendingFile ? "Add a caption… (optional)" : `Message in ${channel}…`}
               className="flex-1 outline-none text-sm bg-transparent"
