@@ -9502,8 +9502,8 @@ function TeamChat() {
   const [customChannels, setCustomChannels] = React.useState([]);
   const [showAddCh,      setShowAddCh]      = React.useState(false);
   const [newChName,      setNewChName]      = React.useState("");
-  const [isAdmin,        setIsAdmin]        = React.useState(false);
-  const [adminUser,      setAdminUser]      = React.useState("");
+  const [adminUser,      setAdminUser]      = React.useState(""); // the OWNER (server creator) — immune, from server_config
+  const [adminList,      setAdminList]      = React.useState([]); // names the owner granted the Admin (moderator) role
   const [recording,      setRecording]      = React.useState(false);
   const [darkMode,       setDarkMode]       = React.useState(() => localStorage.getItem("chat_theme") === "dark");
   const [automodRules,   setAutomodRules]   = React.useState([]);
@@ -9591,7 +9591,6 @@ function TeamChat() {
     // Record admin role when creating a new server
     if (isCreator && sid !== PUBLIC_SERVER_ID) {
       localStorage.setItem(`chat_admin_${sid}`, name.trim());
-      setIsAdmin(true);
       setAdminUser(name.trim());
       getSB()?.from("messages").insert({
         channel:    `${sid}_sys`,
@@ -9801,17 +9800,12 @@ function TeamChat() {
     return () => { chSub.unsubscribe(); };
   }, [ready, serverId]);
 
-  // Restore admin role on rejoin
+  // Resolve the server OWNER (creator) on rejoin — the first server_config wins.
   React.useEffect(() => {
     if (!ready || !serverId || serverId === PUBLIC_SERVER_ID) return;
-    const mn = localStorage.getItem("chat_name");
     // Fast path: local cache
     const cached = localStorage.getItem(`chat_admin_${serverId}`);
-    if (cached) {
-      setAdminUser(cached);
-      if (cached === mn) setIsAdmin(true);
-      return;
-    }
+    if (cached) { setAdminUser(cached); return; }
     // Slow path: fetch first server_config from Supabase
     const sb = getSB();
     if (!sb) return;
@@ -9826,9 +9820,34 @@ function TeamChat() {
         if (admin) {
           setAdminUser(admin);
           localStorage.setItem(`chat_admin_${serverId}`, admin);
-          if (admin === mn) setIsAdmin(true);
         }
       });
+  }, [ready, serverId]);
+
+  // Load + live-sync the granted Admin (moderator) list. Latest roles_config wins.
+  React.useEffect(() => {
+    if (!ready || !serverId || serverId === PUBLIC_SERVER_ID) { setAdminList([]); return; }
+    const sb = getSB();
+    if (!sb) return;
+    const sysKey = `${serverId}_sys`;
+    sb.from("messages")
+      .select("share_data")
+      .eq("channel", sysKey)
+      .eq("share_type", "roles_config")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .then(({ data }) => {
+        const a = data?.[0]?.share_data?.admins;
+        if (Array.isArray(a)) setAdminList(a);
+      });
+    const sub = sb.channel(`roles:${serverId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `channel=eq.${sysKey}` },
+        ({ new: msg }) => {
+          if (msg.share_type === "roles_config" && Array.isArray(msg.share_data?.admins))
+            setAdminList(msg.share_data.admins);
+        })
+      .subscribe();
+    return () => { sub.unsubscribe(); };
   }, [ready, serverId]);
 
   // Load automod rules and flagged messages for team servers
@@ -10205,6 +10224,25 @@ function TeamChat() {
   const chInfo    = CHAT_CHANNELS.find(c=>c.id===channel);
   const isCommunity = serverId === PUBLIC_SERVER_ID;
 
+  // Roles (team servers only). Owner = the creator, immune and the only one who can
+  // grant/revoke. Admin = owner OR anyone the owner granted → moderator powers.
+  const isOwner = !isCommunity && !!adminUser && myName === adminUser;
+  const isAdmin = isOwner || (!isCommunity && adminList.includes(myName));
+  const roleOf  = (name) => name === adminUser ? "owner" : adminList.includes(name) ? "admin" : "member";
+
+  // Owner-only: persist a new admin list (realtime roles_config; optimistic locally).
+  const saveRoles = (nextAdmins) => {
+    if (!isOwner) return;
+    setAdminList(nextAdmins);
+    getSB()?.from("messages").insert({
+      channel: `${serverId}_sys`, username: myName, color: myColor, content: null,
+      share_type: "roles_config",
+      share_data: { admins: nextAdmins, updatedBy: myName, updatedAt: new Date().toISOString() },
+    }).then(({ error }) => { if (error) chatLog.warn("saveRoles failed", { msg: error.message }); });
+  };
+  const grantAdmin  = (name) => { if (isOwner && name !== adminUser && !adminList.includes(name)) saveRoles([...adminList, name]); };
+  const revokeAdmin = (name) => { if (isOwner) saveRoles(adminList.filter(n => n !== name)); };
+
   // Reactions ride the same channel as messages (share_type "reaction"): aggregate
   // them into a { msgId: { emoji: [{username,rowId}] } } map and keep them out of
   // the rendered bubble list. Plain derivations (not hooks) — we're past the gate
@@ -10445,7 +10483,7 @@ function TeamChat() {
         <div className="flex-1 min-w-0">
           <p style={{ color:T.textPrimary, fontSize:12, fontWeight:600, lineHeight:1.2 }} className="truncate">{myName}</p>
           <p style={{ color:myStatus==="online"?T.onlineText:T.dndText, fontSize:10 }}>
-            {isAdmin && !isCommunity ? (myStatus==="online"?"Admin · Online":"Admin · DND") : myStatus==="online"?"Online":"Do Not Disturb"}
+            {isAdmin && !isCommunity ? `${isOwner?"Owner":"Admin"} · ${myStatus==="online"?"Online":"DND"}` : myStatus==="online"?"Online":"Do Not Disturb"}
           </p>
         </div>
         {/* Theme toggle */}
@@ -10559,11 +10597,12 @@ function TeamChat() {
               </div>
               <div className="flex-1 overflow-y-auto" style={{ padding:"8px 6px" }}>
                 {(() => {
-                  const admins  = !isCommunity ? uniqueMembers.filter(m => m.name === adminUser) : [];
-                  const members = uniqueMembers.filter(m => isCommunity || m.name !== adminUser);
+                  const owners  = !isCommunity ? uniqueMembers.filter(m => m.name === adminUser) : [];
+                  const admins  = !isCommunity ? uniqueMembers.filter(m => m.name !== adminUser && adminList.includes(m.name)) : [];
+                  const members = uniqueMembers.filter(m => isCommunity || (m.name !== adminUser && !adminList.includes(m.name)));
 
-                  const MemberRow = ({ m, dim }) => (
-                    <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg">
+                  const MemberRow = ({ m, dim, role }) => (
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg group">
                       <div style={{ position:"relative", flexShrink:0 }}>
                         <div style={{ width:28, height:28, borderRadius:"50%", background:`radial-gradient(circle at 35% 28%, rgba(255,255,255,0.4), rgba(255,255,255,0) 58%), ${m.color}`, opacity:dim?0.55:1, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"inset 0 0 0 1px rgba(255,255,255,0.14)" }}>
                           <span style={{ color:"#fff", fontSize:11, fontWeight:700, textShadow:"0 1px 2px rgba(0,0,0,0.25)" }}>{m.name?.[0]?.toUpperCase()}</span>
@@ -10574,21 +10613,40 @@ function TeamChat() {
                         <p style={{ color:m.name===myName?T.textPrimary:T.textMuted, fontSize:12, fontWeight:m.name===myName?600:400 }} className="truncate">{m.name}</p>
                         {m.name===myName && <p style={{ color:T.textDim, fontSize:9, lineHeight:1.2 }}>you</p>}
                       </div>
+                      {role === "owner" && (
+                        <span title="Server owner" style={{ flexShrink:0, color:"#f5b301" }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M5 16L3 6l5.5 4L12 4l3.5 6L21 6l-2 10H5zm0 2h14v2H5v-2z"/></svg>
+                        </span>
+                      )}
+                      {/* Owner-only role controls — never shown on the owner's own row. */}
+                      {isOwner && role !== "owner" && (
+                        role === "admin"
+                          ? <button onClick={()=>revokeAdmin(m.name)} title="Remove admin role"
+                              className="opacity-0 group-hover:opacity-100 transition" style={{ flexShrink:0, fontSize:9, fontWeight:700, color:T.errorText, border:`1px solid ${T.border}`, borderRadius:6, padding:"2px 5px", background:"transparent", cursor:"pointer" }}>− Admin</button>
+                          : <button onClick={()=>grantAdmin(m.name)} title="Make this member an admin"
+                              className="opacity-0 group-hover:opacity-100 transition" style={{ flexShrink:0, fontSize:9, fontWeight:700, color:T.accentText, border:`1px solid ${T.accentBorder}`, borderRadius:6, padding:"2px 5px", background:"transparent", cursor:"pointer" }}>+ Admin</button>
+                      )}
                     </div>
                   );
 
                   return (
                     <>
+                      {owners.length > 0 && (
+                        <>
+                          <p style={{ color:"#f5b301", fontSize:10, fontWeight:700, letterSpacing:"0.08em", padding:"6px 8px 4px" }}>OWNER</p>
+                          {owners.map((m,i) => <MemberRow key={i} m={m} dim={m.status==="dnd"} role="owner"/>)}
+                        </>
+                      )}
                       {admins.length > 0 && (
                         <>
-                          <p style={{ color:T.membersAddmin, fontSize:10, fontWeight:700, letterSpacing:"0.08em", padding:"6px 8px 4px" }}>ADMIN — {admins.length}</p>
-                          {admins.map((m,i) => <MemberRow key={i} m={m} dim={m.status==="dnd"}/>)}
+                          <p style={{ color:T.membersAddmin, fontSize:10, fontWeight:700, letterSpacing:"0.08em", padding:"10px 8px 4px" }}>ADMIN — {admins.length}</p>
+                          {admins.map((m,i) => <MemberRow key={i} m={m} dim={m.status==="dnd"} role="admin"/>)}
                         </>
                       )}
                       {members.length > 0 && (
                         <>
                           <p style={{ color:T.textLabel, fontSize:10, fontWeight:700, letterSpacing:"0.08em", padding:"10px 8px 4px" }}>MEMBER — {members.length}</p>
-                          {members.map((m,i) => <MemberRow key={i} m={m} dim={m.status==="dnd"}/>)}
+                          {members.map((m,i) => <MemberRow key={i} m={m} dim={m.status==="dnd"} role="member"/>)}
                         </>
                       )}
                       {uniqueMembers.length === 0 && (
