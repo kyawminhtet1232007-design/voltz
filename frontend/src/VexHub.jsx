@@ -11145,8 +11145,15 @@ function GuideArt({ id, accent, img }) {
     <>
       <ChapterArt id={id} accent={accent} />
       {img && !failed && (
-        <img src={img} alt="" draggable={false} onError={() => setFailed(true)}
-          className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0">
+          {/* Blurred, zoomed copy fills the panel with the photo's own colours so
+              the aspect-ratio mismatch never shows empty bars… */}
+          <img src={img} aria-hidden="true" draggable={false}
+            className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-70" />
+          {/* …while the sharp copy is fully contained — nothing gets cropped. */}
+          <img src={img} alt="" draggable={false} onError={() => setFailed(true)}
+            className="absolute inset-0 w-full h-full object-contain" />
+        </div>
       )}
     </>
   );
@@ -11396,7 +11403,7 @@ function Resources() {
 
   /* ── Hub — bento library ── */
   if (!openGuide) {
-    const Tile = ({ c, artH = "h-24", big = false, className = "" }) => (
+    const Tile = ({ c, artH = "h-36", big = false, className = "" }) => (
       <button onClick={() => goTo(c.id)}
         className={`group text-left rounded-3xl overflow-hidden bg-white transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl ${className}`}
         style={{ border: "1px solid #e6e6ec", boxShadow: "0 2px 10px rgba(0,0,0,0.04)" }}>
@@ -11453,11 +11460,11 @@ function Resources() {
 
           {/* Bento grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" data-reveal="stagger">
-            <Tile c={CHAPTERS[0]} big artH="h-48 sm:h-60" className="lg:col-span-2 lg:row-span-2" />
+            <Tile c={CHAPTERS[0]} big artH="h-56 sm:h-72" className="lg:col-span-2 lg:row-span-2" />
             <Tile c={CHAPTERS[1]} />
             <Tile c={CHAPTERS[2]} />
             <Tile c={CHAPTERS[3]} />
-            <Tile c={CHAPTERS[4]} className="lg:col-span-2" />
+            <Tile c={CHAPTERS[4]} artH="h-40 sm:h-48" className="lg:col-span-2" />
           </div>
 
           {/* Voltz strip */}
