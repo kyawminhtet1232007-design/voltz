@@ -278,10 +278,17 @@ function AuthProvider({ children }) {
     if (!sb) return Promise.resolve({ error: { message: "Auth unavailable" } });
     return sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
   };
-  // Sets the new password during a recovery session, then clears the gate.
+  // Sets the new password during a recovery session, then signs out — the
+  // recovery session is a special short-lived credential (from clicking the
+  // emailed link), not a real login, so it deliberately does NOT leave them
+  // signed in. They confirm the new password actually works by signing back
+  // in with it themselves, same as anyone else.
   const updatePasswordAndClearRecovery = async (newPassword) => {
     const { error } = await getSB().auth.updateUser({ password: newPassword });
-    if (!error) setPasswordRecovery(false);
+    if (!error) {
+      await getSB().auth.signOut();
+      setPasswordRecovery(false);
+    }
     return { error };
   };
   // Google OAuth — redirects to Google's consent screen, then back to the app.
@@ -3528,10 +3535,10 @@ function GoogleButton({ label = "Continue with Google", onError, intent }) {
   );
 }
 
-function AuthModal({ onClose }) {
+function AuthModal({ onClose, defaultEmail = "" }) {
   const { signIn, signUp, resetPasswordForEmail } = useAuth();
   const [tab, setTab]   = React.useState("signin"); // "signin" | "signup"
-  const [email, setEmail]   = React.useState("");
+  const [email, setEmail]   = React.useState(defaultEmail);
   const [pw, setPw]         = React.useState("");
   const [pw2, setPw2]       = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -3849,7 +3856,7 @@ function GoogleOneTap() {
 // otherwise unmount this modal before its own "password updated" message
 // ever had a chance to show.
 function ResetPasswordModal() {
-  const { passwordRecovery, updatePasswordAndClearRecovery } = useAuth() || {};
+  const { user, passwordRecovery, updatePasswordAndClearRecovery } = useAuth() || {};
   const [visible, setVisible] = React.useState(false);
   React.useEffect(() => { if (passwordRecovery) setVisible(true); }, [passwordRecovery]);
   const [pw, setPw]     = React.useState("");
@@ -3857,16 +3864,25 @@ function ResetPasswordModal() {
   const [saving, setSaving] = React.useState(false);
   const [err, setErr]   = React.useState("");
   const [done, setDone] = React.useState(false);
+  const [savedEmail, setSavedEmail] = React.useState(""); // captured before sign-out clears `user`
   if (!visible) return null;
   const save = async () => {
     setErr("");
     if (pw.length < 6) { setErr("Password must be at least 6 characters."); return; }
     if (pw !== pw2) { setErr("Passwords don't match."); return; }
+    const emailForSignIn = user?.email || ""; // read now — updatePasswordAndClearRecovery signs out below
     setSaving(true);
     const { error } = await updatePasswordAndClearRecovery(pw);
     setSaving(false);
     if (error) { setErr(error.message || "Could not update password — try again."); return; }
+    setSavedEmail(emailForSignIn);
     setDone(true);
+  };
+  // Signed out on purpose (see updatePasswordAndClearRecovery) — send them
+  // straight to Sign In with their email pre-filled instead of just closing.
+  const continueToSignIn = () => {
+    setVisible(false);
+    window.dispatchEvent(new CustomEvent("voltz-open-auth", { detail: { email: savedEmail } }));
   };
   return (
     <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
@@ -3877,10 +3893,10 @@ function ResetPasswordModal() {
               <svg width="24" height="20" viewBox="0 0 24 20" fill="none"><path d="M2 10l7 7L22 2" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
             <p className="text-gray-900 font-bold text-lg mb-1">Password updated</p>
-            <p className="text-gray-400 text-sm mb-5">You're signed in with your new password.</p>
-            <button onClick={() => setVisible(false)}
+            <p className="text-gray-400 text-sm mb-5">Sign in with your new password to continue.</p>
+            <button onClick={continueToSignIn}
               className="w-full py-3 rounded-xl bg-red-600 text-white font-bold text-sm hover:opacity-90 transition">
-              Continue
+              Continue to Sign In
             </button>
           </div>
         ) : (
@@ -13191,6 +13207,7 @@ function VexLearningHubInner() {
   // even while the heavy page render is still in flight in the transition.
   const [navPage, setNavPage] = useState(hasInvite ? "community" : "home");
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalEmail, setAuthModalEmail] = useState(""); // pre-fill, e.g. after a password reset
   const [lessonsNonce, setLessonsNonce] = useState(0);
   // True for the brief window between "OAuth returned on the wrong tab" and
   // "signed back out + modal reopened" — see the effect below. Renders a full
@@ -13244,9 +13261,11 @@ function VexLearningHubInner() {
   }, [user, authLoading]);
 
   // SignInPrompt (and anywhere else) can ask the shell to open the full auth
-  // modal — e.g. its "sign in with email" option.
+  // modal — e.g. its "sign in with email" option. ResetPasswordModal passes
+  // an email to pre-fill (after a password reset, they land straight back on
+  // Sign In with it already typed in rather than retyping their address).
   React.useEffect(() => {
-    const open = () => setAuthModalOpen(true);
+    const open = (e) => { setAuthModalEmail(e?.detail?.email || ""); setAuthModalOpen(true); };
     window.addEventListener("voltz-open-auth", open);
     return () => window.removeEventListener("voltz-open-auth", open);
   }, []);
@@ -13298,7 +13317,7 @@ function VexLearningHubInner() {
       {/* GSAP ScrollTrigger reveals — re-scans [data-reveal]/[data-parallax] marks on page change */}
       <ScrollFx pageKey={currentPage} />
 
-      {authModalOpen && <AuthModal onClose={()=>setAuthModalOpen(false)} />}
+      {authModalOpen && <AuthModal onClose={()=>setAuthModalOpen(false)} defaultEmail={authModalEmail} />}
 
       {/* Google One Tap inline account picker + engagement-triggered nudge */}
       <GoogleOneTap />
