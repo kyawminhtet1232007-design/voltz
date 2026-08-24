@@ -11443,28 +11443,36 @@ function TeamChat() {
 // Guide card art: shows the real photo (`img`) when it loads, and falls back to
 // the illustrated ChapterArt panel if no photo is set or the file is missing —
 // so dropping a JPG into /public makes the photo appear with zero code changes.
+// Module-level (not React state) so it survives the whole session, across page
+// navigations — the Resources page fully remounts on every visit (PageTransition
+// keys on pageKey), which used to force GuideArt to re-probe "is this loaded?"
+// from zero every time, and that async re-check wasn't always instant — causing
+// the illustrated SVG to flash again on revisits even though the photo was
+// already shown seconds earlier. Once a photo has loaded successfully this
+// session, it's remembered here and every later mount skips the placeholder
+// entirely, no re-check needed.
+const loadedGuidePhotos = new Set();
+
 function GuideArt({ id, accent, img, imgPos = "center" }) {
   const [failed, setFailed] = React.useState(false);
   // Track "actually decoded and ready to paint" rather than just "started
   // loading" — otherwise the illustrated SVG and the photo both mount at once
   // and the SVG is visible underneath for a frame before the photo paints over
-  // it (the "old image glitch" on open). Lazy-init from `img.complete` so an
-  // already-cached photo (e.g. revisiting the hub) never even flashes once.
-  const [loaded, setLoaded] = React.useState(() => {
-    if (!img || typeof window === "undefined") return false;
-    const probe = new window.Image();
-    probe.src = img;
-    return probe.complete && probe.naturalWidth > 0;
-  });
+  // it (the "old image glitch" on open). Lazy-init from the session cache so a
+  // photo that's already loaded once never flashes again on a later visit.
+  const [loaded, setLoaded] = React.useState(() => !!img && loadedGuidePhotos.has(img));
   const showPhoto = img && !failed && loaded;
+  const onLoad = () => { if (img) loadedGuidePhotos.add(img); setLoaded(true); };
   return (
     <>
       {/* Only one of these two is ever visible — never layered — so there is
-          nothing for the photo to "pop in" over. */}
+          nothing for the photo to "pop in" over. If the photo genuinely can't
+          load (offline, broken URL), this SVG is the intended fallback, not a
+          bug — better than a broken-image icon. */}
       {!showPhoto && <ChapterArt id={id} accent={accent} />}
       {img && !failed && (
         <img src={img} alt="" draggable={false}
-          onLoad={() => setLoaded(true)} onError={() => setFailed(true)}
+          onLoad={onLoad} onError={() => setFailed(true)}
           className="absolute inset-0 w-full h-full object-cover"
           style={{ objectPosition: imgPos, opacity: showPhoto ? 1 : 0 }} />
       )}
