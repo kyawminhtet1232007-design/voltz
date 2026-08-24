@@ -3482,18 +3482,45 @@ function AuthModal({ onClose }) {
   const [err, setErr]       = React.useState("");
   const [done, setDone]     = React.useState(false);
 
+  // Switch tabs without losing what they typed — used both by the manual
+  // "Sign in instead" / "Create an account" links and by the auto-redirect
+  // below when someone lands on the wrong tab for their email.
+  const switchTab = (t) => { setTab(t); setErr(""); setPw(""); setPw2(""); };
+
   const submit = async () => {
     setErr("");
     if (!email || !pw) { setErr("Enter your email and password."); return; }
     if (tab === "signup" && pw !== pw2) { setErr("Passwords don't match."); return; }
     setLoading(true);
-    const { error } = tab === "signin"
-      ? await signIn(email, pw)
-      : await signUp(email, pw);
-    setLoading(false);
-    if (error) { setErr(error.message); return; }
-    if (tab === "signup") { setDone(true); }
-    else { onClose(); }
+    if (tab === "signin") {
+      const { error } = await signIn(email, pw);
+      setLoading(false);
+      if (error) {
+        // Supabase deliberately returns the same generic message whether the
+        // email doesn't exist or the password is wrong (anti-enumeration) —
+        // so give a clear next step either way instead of a dead-end error.
+        setErr("Incorrect email or password. New here? Create an account instead.");
+        return;
+      }
+      onClose();
+    } else {
+      const { data, error } = await signUp(email, pw);
+      setLoading(false);
+      // Supabase's own "already registered" signal: with email confirmations
+      // on, signing up an existing *confirmed* email returns no error but a
+      // user with an empty identities array (rather than leaking that the
+      // account exists via an explicit error). Some project configs instead
+      // return an explicit "already registered" error — handle both.
+      const alreadyRegistered = (error && /already registered|already exists/i.test(error.message))
+        || (!error && Array.isArray(data?.user?.identities) && data.user.identities.length === 0);
+      if (alreadyRegistered) {
+        switchTab("signin");
+        setErr("You already have an account with this email — sign in instead.");
+        return;
+      }
+      if (error) { setErr(error.message); return; }
+      setDone(true);
+    }
   };
 
   return (
@@ -3524,7 +3551,7 @@ function AuthModal({ onClose }) {
             {/* Tabs */}
             <div className="flex gap-1 p-1 rounded-xl mb-6" style={{background:"#f3f4f6"}}>
               {[["signin","Sign In"],["signup","Create Account"]].map(([t,l])=>(
-                <button key={t} onClick={()=>{setTab(t);setErr("");}}
+                <button key={t} onClick={()=>switchTab(t)}
                   className="flex-1 py-2 rounded-lg text-sm font-semibold transition"
                   style={{background:tab===t?"#ffffff":"transparent",color:tab===t?"#111827":"#9ca3af",
                     boxShadow:tab===t?"0 1px 4px rgba(0,0,0,0.08)":"none"}}>
@@ -3575,10 +3602,15 @@ function AuthModal({ onClose }) {
               {loading ? "..." : tab==="signin" ? "Sign In" : "Create Account"}
             </button>
 
-            {tab==="signin"&&(
+            {tab==="signin" ? (
               <p className="text-center text-xs text-gray-400 mt-3">
                 No account?{" "}
-                <button onClick={()=>setTab("signup")} className="text-red-500 font-semibold hover:underline">Sign up free</button>
+                <button onClick={()=>switchTab("signup")} className="text-red-500 font-semibold hover:underline">Sign up free</button>
+              </p>
+            ) : (
+              <p className="text-center text-xs text-gray-400 mt-3">
+                Already have an account?{" "}
+                <button onClick={()=>switchTab("signin")} className="text-red-500 font-semibold hover:underline">Sign in</button>
               </p>
             )}
           </>)}
