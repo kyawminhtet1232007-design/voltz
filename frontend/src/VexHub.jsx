@@ -3448,11 +3448,23 @@ function ChatMessage({ content, isUser }) {
 // "Continue with Google" — Supabase OAuth. Redirects out to Google's consent
 // screen, so no credentials are ever handled in-app. Reused by AuthModal + the
 // engagement-triggered SignInPrompt.
-function GoogleButton({ label = "Continue with Google", onError }) {
+//
+// Google OAuth itself has no separate "create" vs "sign in" mode — Supabase
+// happily signs in an existing account OR creates a new one from the same
+// button. That's correct almost everywhere (SignInPrompt, the Community gate
+// — ambiguous intent is fine there), but the AuthModal's Create Account tab
+// specifically must reject an existing account rather than quietly logging
+// the person into it. Since a full-page OAuth redirect throws away all React
+// state, the requested `intent` is stashed in localStorage before leaving and
+// read back after the redirect returns (see the enforcement effect in
+// VexLearningHubInner) — the only way to carry it across that round trip.
+const GOOGLE_OAUTH_INTENT_KEY = "voltz_google_oauth_intent";
+function GoogleButton({ label = "Continue with Google", onError, intent }) {
   const { signInWithGoogle } = useAuth();
   const [busy, setBusy] = React.useState(false);
   const go = async () => {
     setBusy(true);
+    if (intent) { try { localStorage.setItem(GOOGLE_OAUTH_INTENT_KEY, intent); } catch { /* ignore */ } }
     // Failsafe: on success the whole page redirects to Google almost
     // immediately, so this component unmounts before its state matters.
     // But if that redirect is blocked or delayed (network hiccup, a browser
@@ -3462,6 +3474,7 @@ function GoogleButton({ label = "Continue with Google", onError }) {
     // (moot — page navigates away) or on any error/thrown exception.
     const timeout = setTimeout(() => {
       setBusy(false);
+      try { localStorage.removeItem(GOOGLE_OAUTH_INTENT_KEY); } catch { /* ignore */ }
       onError?.("Google sign-in is taking too long — check your connection, or use email sign-in below.");
     }, 8000);
     try {
@@ -3469,12 +3482,14 @@ function GoogleButton({ label = "Continue with Google", onError }) {
       if (error) {
         clearTimeout(timeout);
         setBusy(false);
+        try { localStorage.removeItem(GOOGLE_OAUTH_INTENT_KEY); } catch { /* ignore */ }
         onError?.(error.message || "Google sign-in unavailable");
       }
       // on success the browser redirects to Google — no further UI needed.
     } catch (e) {
       clearTimeout(timeout);
       setBusy(false);
+      try { localStorage.removeItem(GOOGLE_OAUTH_INTENT_KEY); } catch { /* ignore */ }
       onError?.(e?.message || "Google sign-in failed — try email sign-in below.");
     }
   };
@@ -3604,8 +3619,11 @@ function AuthModal({ onClose }) {
               ))}
             </div>
 
-            {/* Fast path first — Google, then email below the divider */}
-            <GoogleButton onError={setErr} />
+            {/* Fast path first — Google, then email below the divider. `intent`
+                mirrors the active tab so Google is held to the same rule as
+                the email/password fields below it: Sign In requires an
+                existing account, Create Account requires a new one. */}
+            <GoogleButton onError={setErr} intent={tab === "signup" ? "signup" : "signin"} />
 
             <div className="flex items-center gap-3 my-4">
               <div className="flex-1 h-px" style={{ background: "#ececf1" }} />
@@ -13024,6 +13042,36 @@ function VexLearningHubInner() {
   // before auth resolves and signed_in_users always reads 0. isNewSession() in
   // recordVisit still guards against duplicate rows. Fire-and-forget.
   React.useEffect(() => { if (!authLoading) recordVisit(user?.id); }, [authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Enforce Sign In vs Create Account for Google too (see GoogleButton's
+  // comment) — the OAuth redirect itself can't tell Supabase "only if this
+  // account already exists" or vice versa, so we check after the fact: if the
+  // AuthModal's Create Account tab sent the person to Google and they land
+  // back on an account that already existed (created_at far in the past, not
+  // "just now"), or the Sign In tab sent them and they land on a BRAND NEW
+  // account, that's the wrong tab for what actually happened — sign them
+  // back out and reopen the modal on the tab that matches reality, so Google
+  // is held to the same rule as the email/password fields.
+  React.useEffect(() => {
+    if (authLoading || !user) return;
+    let intent;
+    try { intent = localStorage.getItem(GOOGLE_OAUTH_INTENT_KEY); } catch { intent = null; }
+    if (!intent) return;
+    try { localStorage.removeItem(GOOGLE_OAUTH_INTENT_KEY); } catch { /* ignore */ }
+    const createdAt = user.created_at ? new Date(user.created_at).getTime() : null;
+    const isBrandNew = createdAt !== null && (Date.now() - createdAt < 15_000);
+    const wrongTab = (intent === "signup" && !isBrandNew) || (intent === "signin" && isBrandNew);
+    if (!wrongTab) return;
+    getSB()?.auth.signOut().then(() => {
+      notify(
+        intent === "signup"
+          ? "You already have an account with that Google email — signed you out. Please use Sign In instead."
+          : "No account exists yet for that Google email — signed you out. Please use Create Account instead.",
+        { level: "error" }
+      );
+      setAuthModalOpen(true);
+    });
+  }, [user, authLoading]);
 
   // SignInPrompt (and anywhere else) can ask the shell to open the full auth
   // modal — e.g. its "sign in with email" option.
