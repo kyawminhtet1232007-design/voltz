@@ -12806,11 +12806,14 @@ function VexLearningHubInner() {
   const [navPage, setNavPage] = useState(hasInvite ? "community" : "home");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [lessonsNonce, setLessonsNonce] = useState(0);
-  const { user } = useAuth();
+  const { user, authLoading } = useAuth();
 
   // Record one visit per browser session for the owner analytics counter.
-  // Guarded + fire-and-forget: never blocks or breaks the app.
-  React.useEffect(() => { recordVisit(user?.id); }, [user?.id]);
+  // Wait until Supabase has restored the session (authLoading === false) so a
+  // returning signed-in user's visit carries their user_id — otherwise it logs
+  // before auth resolves and signed_in_users always reads 0. isNewSession() in
+  // recordVisit still guards against duplicate rows. Fire-and-forget.
+  React.useEffect(() => { if (!authLoading) recordVisit(user?.id); }, [authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // SignInPrompt (and anywhere else) can ask the shell to open the full auth
   // modal — e.g. its "sign in with email" option.
