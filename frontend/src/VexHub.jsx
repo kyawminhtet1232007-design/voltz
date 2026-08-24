@@ -12837,10 +12837,14 @@ function OwnerStats() {
   const close = () => { setOpen(false); setUnlocked(false); setPin(""); setErr(""); setStats(null); setFeedback(null); };
 
   const N = (v) => (v == null ? "—" : Number(v).toLocaleString());
+  // "Signed-in users" was dropped from display — it measures something subtly
+  // different from total signups (visits recorded while authenticated, not
+  // total accounts) and was a recurring source of confusion. The raw number
+  // is still returned by get_site_stats() for anyone querying Supabase
+  // directly; this just simplifies what the owner sees in the app.
   const rows = stats && [
     ["Total visits",     stats.total_visits],
     ["Unique visitors",  stats.unique_visitors],
-    ["Signed-in users",  stats.signed_in_users],
     ["Visits today",     stats.visits_today],
   ];
 
