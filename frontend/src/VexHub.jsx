@@ -12474,23 +12474,16 @@ function Dashboard() {
 // Floating "Feedback" button + quick form. Anyone can submit; stored in Supabase
 // (see submitFeedback / 20260824_feedback.sql). Sits bottom-left so it never
 // clashes with the bottom-right Voltz chat launcher.
-const FEEDBACK_TYPES = [
-  { id: "idea",   emoji: "💡", label: "Idea" },
-  { id: "bug",    emoji: "🐛", label: "Bug" },
-  { id: "praise", emoji: "❤️", label: "Praise" },
-  { id: "other",  emoji: "💬", label: "Other" },
-];
 function FeedbackWidget() {
   const { user } = useAuth() || {};
   const [open, setOpen]   = React.useState(false);
-  const [type, setType]   = React.useState("idea");
   const [msg, setMsg]     = React.useState("");
   const [state, setState] = React.useState("idle"); // idle | sending | done
-  const close = () => { setOpen(false); setTimeout(() => { setState("idle"); setMsg(""); setType("idea"); }, 200); };
+  const close = () => { setOpen(false); setTimeout(() => { setState("idle"); setMsg(""); }, 200); };
   const send = async () => {
     if (!msg.trim() || state === "sending") return;
     setState("sending");
-    const ok = await submitFeedback({ type, message: msg.trim(), userId: user?.id });
+    const ok = await submitFeedback({ type: "other", message: msg.trim(), userId: user?.id });
     if (ok) { setState("done"); setTimeout(close, 1800); }
     else { setState("idle"); notify("Couldn't send — try again in a moment.", { level: "error" }); }
   };
@@ -12523,18 +12516,7 @@ function FeedbackWidget() {
                     <h3 className="text-lg font-semibold tracking-tight" style={{ color: "#1d1d1f" }}>Send feedback</h3>
                     <button onClick={close} className="w-7 h-7 rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 transition text-sm">✕</button>
                   </div>
-                  <div className="grid grid-cols-4 gap-2 mb-4">
-                    {FEEDBACK_TYPES.map(t => (
-                      <button key={t.id} onClick={() => setType(t.id)}
-                        className="flex flex-col items-center gap-1 py-2.5 rounded-xl text-xs font-semibold transition"
-                        style={type === t.id
-                          ? { background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)", color: "#dc2626" }
-                          : { background: "#f7f7fa", border: "1px solid #ececf1", color: "#6e6e73" }}>
-                        <span className="text-base leading-none">{t.emoji}</span>{t.label}
-                      </button>
-                    ))}
-                  </div>
-                  <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={4} autoFocus maxLength={2000}
+                  <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={5} autoFocus maxLength={2000}
                     placeholder="What's working, what's not, what would you love to see?"
                     className="w-full rounded-xl px-4 py-3 text-sm text-gray-900 outline-none resize-none" style={LIGHT_CARD} />
                   <button onClick={send} disabled={!msg.trim() || state === "sending"}
@@ -12572,7 +12554,6 @@ function OwnerStats() {
     } else { setErr("Incorrect PIN."); }
   };
   const close = () => { setOpen(false); setUnlocked(false); setPin(""); setErr(""); setStats(null); setFeedback(null); };
-  const fbEmoji = (t) => (FEEDBACK_TYPES.find(x => x.id === t)?.emoji || "💬");
 
   const N = (v) => (v == null ? "—" : Number(v).toLocaleString());
   const rows = stats && [
@@ -12637,11 +12618,8 @@ function OwnerStats() {
                       <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                         {feedback.map(f => (
                           <div key={f.id} className="rounded-xl px-3 py-2.5" style={{ background:"#f8f8fb", border:"1px solid #ececf1" }}>
-                            <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-xs font-semibold" style={{ color:"#48484a" }}>{fbEmoji(f.type)} {f.type || "other"}</span>
-                              <span className="text-[10px]" style={{ color:"#9a9aa2" }}>{new Date(f.created_at).toLocaleDateString()}</span>
-                            </div>
                             <p className="text-[13px] leading-relaxed" style={{ color:"#1d1d1f" }}>{f.message}</p>
+                            <p className="text-[10px] mt-1.5" style={{ color:"#9a9aa2" }}>{new Date(f.created_at).toLocaleDateString()}</p>
                           </div>
                         ))}
                       </div>
