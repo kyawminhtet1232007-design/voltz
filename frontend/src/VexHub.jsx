@@ -10263,7 +10263,7 @@ function TeamChat() {
         </div>
         <h2 className="text-xl font-semibold tracking-tight mb-1.5" style={{ color: "#1d1d1f" }}>Join the Community</h2>
         <p className="text-sm leading-relaxed mb-6" style={{ color: "#6e6e73" }}>
-          Sign in to chat with other VEX teams. Your account is your identity here — no one can post as you.
+          Sign in to chat with other VEX teams.
         </p>
         <GoogleButton />
         <button onClick={() => window.dispatchEvent(new CustomEvent("voltz-open-auth"))}
