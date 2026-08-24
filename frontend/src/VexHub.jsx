@@ -7211,6 +7211,35 @@ async function fetchSiteStats() {
   } catch (e) { analyticsLog.warn("get_site_stats threw", { msg: e?.message }); return null; }
 }
 
+// ── Feedback ────────────────────────────────────────────────────────────────
+// Insert a feedback row (anyone may submit; see 20260824_feedback.sql). Returns
+// true on success. Fire-and-forget-safe — never throws to the caller.
+async function submitFeedback({ type, message, rating, userId }) {
+  const sb = getSB();
+  if (!sb) return false;
+  try {
+    const { error } = await sb.from("feedback").insert({
+      type: type || "other",
+      message: String(message || "").slice(0, 2000),
+      rating: rating || null,
+      user_id: userId || null,
+      path: (typeof location !== "undefined" ? location.pathname : "/") || "/",
+    });
+    if (error) { analyticsLog.warn("feedback insert failed (table not set up?)", { msg: error.message }); return false; }
+    return true;
+  } catch (e) { analyticsLog.warn("feedback insert threw", { msg: e?.message }); return false; }
+}
+// Owner-only: fetch recent feedback (content, no PII) via the get_feedback() RPC.
+async function fetchFeedback() {
+  const sb = getSB();
+  if (!sb) return null;
+  try {
+    const { data, error } = await sb.rpc("get_feedback", { lim: 100 });
+    if (error) { analyticsLog.warn("get_feedback failed", { msg: error.message }); return null; }
+    return Array.isArray(data) ? data : [];
+  } catch (e) { analyticsLog.warn("get_feedback threw", { msg: e?.message }); return null; }
+}
+
 async function shareToChat(channel, shareType, shareData) {
   const sb = getSB();
   const username  = localStorage.getItem("chat_name");
@@ -12442,23 +12471,108 @@ function Dashboard() {
 // Owner-only site analytics — how many people use Voltz and how many have signed
 // in. PIN-gated (same SHA-256 owner PIN as automod) so it stays private; reads
 // aggregate counts via the get_site_stats() RPC (counts only, never raw rows/IPs).
+// Floating "Feedback" button + quick form. Anyone can submit; stored in Supabase
+// (see submitFeedback / 20260824_feedback.sql). Sits bottom-left so it never
+// clashes with the bottom-right Voltz chat launcher.
+const FEEDBACK_TYPES = [
+  { id: "idea",   emoji: "💡", label: "Idea" },
+  { id: "bug",    emoji: "🐛", label: "Bug" },
+  { id: "praise", emoji: "❤️", label: "Praise" },
+  { id: "other",  emoji: "💬", label: "Other" },
+];
+function FeedbackWidget() {
+  const { user } = useAuth() || {};
+  const [open, setOpen]   = React.useState(false);
+  const [type, setType]   = React.useState("idea");
+  const [msg, setMsg]     = React.useState("");
+  const [state, setState] = React.useState("idle"); // idle | sending | done
+  const close = () => { setOpen(false); setTimeout(() => { setState("idle"); setMsg(""); setType("idea"); }, 200); };
+  const send = async () => {
+    if (!msg.trim() || state === "sending") return;
+    setState("sending");
+    const ok = await submitFeedback({ type, message: msg.trim(), userId: user?.id });
+    if (ok) { setState("done"); setTimeout(close, 1800); }
+    else { setState("idle"); notify("Couldn't send — try again in a moment.", { level: "error" }); }
+  };
+  return (
+    <>
+      <button onClick={() => setOpen(true)} aria-label="Send feedback"
+        className="fixed left-5 bottom-5 z-[120] flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full text-sm font-semibold shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl active:scale-95"
+        style={{ background: "#ffffff", color: "#1d1d1f", border: "1px solid #e2e2e9" }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        Feedback
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+          onClick={(e) => e.target === e.currentTarget && close()}>
+          <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden" data-reveal="scale">
+            <div className="p-7">
+              {state === "done" ? (
+                <div className="text-center py-6">
+                  <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                    <svg width="24" height="20" viewBox="0 0 24 20" fill="none"><path d="M2 10l7 7L22 2" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </div>
+                  <p className="font-semibold text-lg" style={{ color: "#1d1d1f" }}>Thank you!</p>
+                  <p className="text-sm mt-1" style={{ color: "#6e6e73" }}>Your feedback helps make Voltz better.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold tracking-tight" style={{ color: "#1d1d1f" }}>Send feedback</h3>
+                    <button onClick={close} className="w-7 h-7 rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 transition text-sm">✕</button>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 mb-4">
+                    {FEEDBACK_TYPES.map(t => (
+                      <button key={t.id} onClick={() => setType(t.id)}
+                        className="flex flex-col items-center gap-1 py-2.5 rounded-xl text-xs font-semibold transition"
+                        style={type === t.id
+                          ? { background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)", color: "#dc2626" }
+                          : { background: "#f7f7fa", border: "1px solid #ececf1", color: "#6e6e73" }}>
+                        <span className="text-base leading-none">{t.emoji}</span>{t.label}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={4} autoFocus maxLength={2000}
+                    placeholder="What's working, what's not, what would you love to see?"
+                    className="w-full rounded-xl px-4 py-3 text-sm text-gray-900 outline-none resize-none" style={LIGHT_CARD} />
+                  <button onClick={send} disabled={!msg.trim() || state === "sending"}
+                    className="mt-4 w-full py-3 rounded-xl text-white font-bold text-sm transition hover:opacity-90 disabled:opacity-50" style={{ background: "#dc2626" }}>
+                    {state === "sending" ? "Sending…" : "Send feedback"}
+                  </button>
+                  <p className="text-[11px] text-center mt-3" style={{ color: "#9a9aa2" }}>
+                    {user ? "Sent with your account so we can follow up." : "Anonymous — sign in if you'd like a reply."}
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function OwnerStats() {
   const [open, setOpen]         = React.useState(false);
   const [unlocked, setUnlocked] = React.useState(false);
   const [pin, setPin]           = React.useState("");
   const [err, setErr]           = React.useState("");
   const [stats, setStats]       = React.useState(null);
+  const [feedback, setFeedback] = React.useState(null);
   const [loading, setLoading]   = React.useState(false);
 
   const submitPin = async () => {
     setErr("");
     if (await checkPin(pin)) {
       setUnlocked(true); setPin(""); setLoading(true);
-      const s = await fetchSiteStats();
-      setStats(s); setLoading(false);
+      const [s, f] = await Promise.all([fetchSiteStats(), fetchFeedback()]);
+      setStats(s); setFeedback(f); setLoading(false);
     } else { setErr("Incorrect PIN."); }
   };
-  const close = () => { setOpen(false); setUnlocked(false); setPin(""); setErr(""); setStats(null); };
+  const close = () => { setOpen(false); setUnlocked(false); setPin(""); setErr(""); setStats(null); setFeedback(null); };
+  const fbEmoji = (t) => (FEEDBACK_TYPES.find(x => x.id === t)?.emoji || "💬");
 
   const N = (v) => (v == null ? "—" : Number(v).toLocaleString());
   const rows = stats && [
@@ -12474,8 +12588,8 @@ function OwnerStats() {
       {open && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
           onClick={(e)=>e.target===e.currentTarget&&close()}>
-          <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden">
-            <div className="p-7">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[88vh] flex flex-col">
+            <div className="p-7 overflow-y-auto">
               <div className="flex items-center justify-between mb-5">
                 <h3 className="text-lg font-semibold tracking-tight" style={{ color:"#1d1d1f" }}>Site analytics</h3>
                 <button onClick={close} className="w-7 h-7 rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 transition text-sm">✕</button>
@@ -12497,14 +12611,43 @@ function OwnerStats() {
                   Analytics isn't set up yet. Apply the <code className="font-mono text-[12px] px-1 rounded" style={{ background:"#f2f2f5" }}>20260810_analytics.sql</code> migration and reload — visits will start counting automatically.
                 </p>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {rows.map(([label, val])=>(
-                    <div key={label} className="rounded-2xl p-4" style={{ background:"#f8f8fb", border:"1px solid #ececf1" }}>
-                      <p className="text-2xl font-semibold tracking-tight tabular-nums" style={{ color:"#1d1d1f" }}>{N(val)}</p>
-                      <p className="text-xs mt-1" style={{ color:"#6e6e73" }}>{label}</p>
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    {rows.map(([label, val])=>(
+                      <div key={label} className="rounded-2xl p-4" style={{ background:"#f8f8fb", border:"1px solid #ececf1" }}>
+                        <p className="text-2xl font-semibold tracking-tight tabular-nums" style={{ color:"#1d1d1f" }}>{N(val)}</p>
+                        <p className="text-xs mt-1" style={{ color:"#6e6e73" }}>{label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Recent feedback */}
+                  <div className="mt-6">
+                    <div className="flex items-baseline justify-between mb-2">
+                      <p className="text-xs font-bold uppercase tracking-[0.12em]" style={{ color:"#9a9aa2" }}>Feedback</p>
+                      {feedback && <span className="text-xs" style={{ color:"#9a9aa2" }}>{feedback.length}</span>}
                     </div>
-                  ))}
-                </div>
+                    {feedback == null ? (
+                      <p className="text-xs leading-relaxed" style={{ color:"#6e6e73" }}>
+                        Not set up yet — apply <code className="font-mono text-[11px] px-1 rounded" style={{ background:"#f2f2f5" }}>20260824_feedback.sql</code>.
+                      </p>
+                    ) : feedback.length === 0 ? (
+                      <p className="text-xs" style={{ color:"#9a9aa2" }}>No feedback yet.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                        {feedback.map(f => (
+                          <div key={f.id} className="rounded-xl px-3 py-2.5" style={{ background:"#f8f8fb", border:"1px solid #ececf1" }}>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-xs font-semibold" style={{ color:"#48484a" }}>{fbEmoji(f.type)} {f.type || "other"}</span>
+                              <span className="text-[10px]" style={{ color:"#9a9aa2" }}>{new Date(f.created_at).toLocaleDateString()}</span>
+                            </div>
+                            <p className="text-[13px] leading-relaxed" style={{ color:"#1d1d1f" }}>{f.message}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -12889,6 +13032,7 @@ function VexLearningHubInner() {
       </PageTransition>
 
       {currentPage !== "codelab" && currentPage !== "community" && <FloatingChat />}
+      {currentPage !== "codelab" && currentPage !== "community" && <FeedbackWidget />}
     </div>
   );
 }
