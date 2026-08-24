@@ -7180,10 +7180,13 @@ function getSB() {
 const isChatReady = () => !!(localStorage.getItem("chat_name") && localStorage.getItem("chat_server_id"));
 
 // ── Visitor analytics ────────────────────────────────────────────────────────
-// Records ONE row per browser session into `site_visits` (visitor UUID +
-// signed-in user id + page, NO IP — see lib/analytics.js + SECURITY.md). All
-// guarded: if Supabase or the table isn't set up, it logs and no-ops so the app
-// never breaks. Owner reads aggregate counts via the get_site_stats() RPC, which
+// Records ONE row per browser session into the shared `site_events` table
+// (kind:"visit" — visitor UUID + signed-in user id + page, NO IP — see
+// lib/analytics.js + SECURITY.md). site_events also holds feedback rows
+// (kind:"feedback", see submitFeedback below) — one combined table instead of
+// two, split only by the `kind` column and the two read-side RPCs. All guarded:
+// if Supabase or the table isn't set up, it logs and no-ops so the app never
+// breaks. Owner reads aggregate counts via the get_site_stats() RPC, which
 // returns counts only (no raw rows/PII).
 const analyticsLog = createLogger("analytics");
 async function recordVisit(userId) {
@@ -7191,7 +7194,8 @@ async function recordVisit(userId) {
   if (!sb) return;
   if (!isNewSession()) return; // one visit row per tab-session
   try {
-    const { error } = await sb.from("site_visits").insert({
+    const { error } = await sb.from("site_events").insert({
+      kind: "visit",
       visitor_id: getVisitorId(),
       user_id: userId || null,
       path: (typeof location !== "undefined" ? location.pathname : "/") || "/",
@@ -7212,13 +7216,15 @@ async function fetchSiteStats() {
 }
 
 // ── Feedback ────────────────────────────────────────────────────────────────
-// Insert a feedback row (anyone may submit; see 20260824_feedback.sql). Returns
-// true on success. Fire-and-forget-safe — never throws to the caller.
+// Insert a feedback row into the shared site_events table (kind:"feedback";
+// see 20260825_site_events.sql). Anyone may submit. Returns true on success.
+// Fire-and-forget-safe — never throws to the caller.
 async function submitFeedback({ type, message, rating, userId }) {
   const sb = getSB();
   if (!sb) return false;
   try {
-    const { error } = await sb.from("feedback").insert({
+    const { error } = await sb.from("site_events").insert({
+      kind: "feedback",
       type: type || "other",
       message: String(message || "").slice(0, 2000),
       rating: rating || null,
