@@ -3550,7 +3550,12 @@ function AuthModal({ onClose }) {
           || (!error && !data?.session && createdAt && (Date.now() - createdAt > 15_000));
         if (alreadyRegistered) {
           switchTab("signin");
-          setErr("You already have an account with this email — sign in instead.");
+          // We can detect THAT an account exists (the anti-enumeration signals
+          // above), but not client-side whether it has a password at all — a
+          // very common case here is a Google-only account (no password ever
+          // set), where "sign in" alone would send them straight into another
+          // dead end. Point at both real options instead of assuming one.
+          setErr("You already have an account with this email. If you signed up with Google, use Continue with Google above — otherwise sign in with your password.");
           return;
         }
         if (error) { setErr(error.message); return; }
