@@ -212,7 +212,10 @@
       "Bash(curl -sI \"https://excalidraw.com/\")",
       "Bash(awk -F: '$1>9990 && $1<10120')",
       "Bash(open /Users/kyaw/Downloads/PassionPrj/frontend/public/)",
-      "Bash(sips -g pixelWidth -g pixelHeight guide-game.png guide-design.png)"
+      "Bash(sips -g pixelWidth -g pixelHeight guide-game.png guide-design.png)",
+      "Bash(awk -F: '$1<400')",
+      "Bash(user)",
+      "Bash(git commit -q -m 'Resources typography + fix One Tap popping for signed-in users *)"
     ]
   }
 }

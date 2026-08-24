@@ -3599,9 +3599,13 @@ function AuthModal({ onClose }) {
 // origins". One Tap won't render on an unlisted origin.
 const oneTapLog = createLogger("google-onetap");
 function GoogleOneTap() {
-  const { user } = useAuth();
+  const { user, authLoading } = useAuth();
   React.useEffect(() => {
-    if (user || !GOOGLE_CLIENT_ID) return;
+    // Never prompt a signed-in user. Wait until Supabase has restored the session
+    // (authLoading === false) so returning visitors don't get a flash of One Tap
+    // before their session loads. If a user is present, dismiss any shown prompt.
+    if (user) { try { window.google?.accounts?.id?.cancel(); } catch { /* ignore */ } return; }
+    if (authLoading || !GOOGLE_CLIENT_ID) return;
     const sb = getSB();
     if (!sb) return;
     let cancelled = false;
@@ -3643,8 +3647,12 @@ function GoogleOneTap() {
     }
     const onLoad = () => init();
     script.addEventListener("load", onLoad, { once: true });
-    return () => { cancelled = true; script?.removeEventListener("load", onLoad); };
-  }, [user]);
+    return () => {
+      cancelled = true;
+      script?.removeEventListener("load", onLoad);
+      try { window.google?.accounts?.id?.cancel(); } catch { /* ignore */ }
+    };
+  }, [user, authLoading]);
   return null;
 }
 
@@ -11324,10 +11332,14 @@ function ChapterBody({ accent, children }) {
 }
 
 function Resources() {
-  const SH = "text-xs font-bold text-gray-400 uppercase tracking-widest mb-3";
-  const row = "flex gap-4 py-3 border-b border-gray-100 last:border-0";
-  const kw  = "text-sm font-semibold text-gray-900 w-40 shrink-0";
-  const vw  = "text-[15px] text-[#48484a] leading-snug";
+  // Guide typography — spec-sheet definition rows: an eyebrow section label, a
+  // fixed uppercase-muted key column, and readable value text, all baseline-aligned.
+  const SH  = "text-[11px] font-bold text-gray-400 uppercase tracking-[0.14em] mb-4";
+  const row = "grid grid-cols-[6.5rem,1fr] gap-x-4 items-baseline border-b border-gray-100 last:border-0";
+  const kw  = "text-[11px] font-semibold uppercase tracking-[0.05em] text-[#9a9aa2] leading-relaxed";
+  const vw  = "text-[15px] text-[#3a3a3c] leading-relaxed";
+  // Numbered-step rows (accent number in a narrow column, aligned to the text).
+  const numRow = "grid grid-cols-[1.6rem,1fr] gap-x-2 items-baseline border-b border-gray-100 last:border-0";
   const secH = "text-base font-bold text-gray-900 mb-3 pb-2 border-b border-gray-100";
 
   // Library layout (bento hub + docs reader): the hub is a bento grid of the five
@@ -11559,8 +11571,8 @@ function Resources() {
                   ["Midfield","Central zone contested for 8-pt endgame positioning"],
                 ].map(([k,v])=>(
                   <div key={k} className={row}>
-                    <span className="text-xs font-bold text-gray-900 w-16 shrink-0 pt-0.5">{k}</span>
-                    <span className="text-sm text-[#48484a]">{v}</span>
+                    <span className={kw}>{k}</span>
+                    <span className={vw}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -11575,8 +11587,8 @@ function Resources() {
                   ["Eliminations","Bracket, mix of best-of-1 and best-of-3"],
                 ].map(([k,v])=>(
                   <div key={k} className={row}>
-                    <span className="text-xs font-bold text-gray-900 w-24 shrink-0 pt-0.5">{k}</span>
-                    <span className="text-sm text-[#48484a]">{v}</span>
+                    <span className={kw}>{k}</span>
+                    <span className={vw}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -11591,9 +11603,9 @@ function Resources() {
                 "Each robot may carry a maximum of one Pin and one Cup at a time.",
                 "During driver control, your drive team may feed one Pin, Cup, or combined Cup+Pin through your alliance Loader.",
               ].map((t,i)=>(
-                <div key={i} className={row}>
-                  <span className="text-xs font-bold text-red-400 w-4 shrink-0 pt-0.5">{i+1}</span>
-                  <p className="text-[15px] text-[#3a3a3c] leading-snug">{t}</p>
+                <div key={i} className={numRow}>
+                  <span className="text-[13px] font-bold tabular-nums text-right pr-1" style={{ color: CHAPTERS[0].accent }}>{i+1}</span>
+                  <p className={vw}>{t}</p>
                 </div>
               ))}
             </div>

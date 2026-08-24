@@ -64,40 +64,36 @@ h1, h2, h3 {
   padding: 1.25rem 1.5rem;
 }
 
-/* Voltz Library — list rows inside a guide card. The old look was a hairline
-   divider (border-b border-gray-100) which read as unbounded text; promote every
-   such row to its own soft panel so each fact has a visible boundary. */
+/* Voltz Library — spec rows inside a guide card. Clean definition-list styling:
+   each row is a hairline-separated grid row (label column + value), not a boxed
+   chip — reads like a real reference/spec sheet. A subtle hover tint keeps them
+   feeling interactive without the heavy panel borders. */
 .guide-body div[class*="border-gray-100"][class*="last:border-0"] {
-  background: #fafafc;
-  border: 1px solid #e9e9ef;
-  border-radius: 12px;
-  padding: 0.7rem 0.95rem;
-  margin-bottom: 0.55rem;
-  transition: border-color 0.25s ease, background 0.25s ease;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #ededf1;
+  border-radius: 0;
+  padding: 0.6rem 0.5rem;
+  margin: 0 -0.5rem;               /* let the hover tint bleed to the panel edge */
+  transition: background 0.18s ease;
 }
 .guide-body div[class*="border-gray-100"][class*="last:border-0"]:last-child {
-  margin-bottom: 0;
+  border-bottom: none;
 }
 .guide-body div[class*="border-gray-100"][class*="last:border-0"]:hover {
-  border-color: #d9d9e3;
-  background: #f6f6fa;
-}
-/* Rows nested inside an already-tinted two-column panel flip to white so they
-   still read as bounded against the #fafafc panel behind them. */
-.guide-body div[class*="sm:grid-cols-2"] > div div[class*="border-gray-100"][class*="last:border-0"] {
-  background: #ffffff;
+  background: rgba(0, 0, 0, 0.025);
 }
 
 /* Voltz Library — two-column text groups inside a guide card get their own soft
    inner panels so no column of text floats unbounded. */
 .guide-body div[class*="sm:grid-cols-2"] {
-  gap: 1.1rem;
+  gap: 1.4rem;
 }
 .guide-body div[class*="sm:grid-cols-2"] > div {
-  background: #fafafc;
+  background: #fbfbfd;
   border: 1px solid #ececf1;
-  border-radius: 14px;
-  padding: 1rem 1.15rem;
+  border-radius: 16px;
+  padding: 1.25rem 1.35rem;
 }
 
 /* Voltz Library — guide photos drift slowly (Ken Burns) so the panel feels alive. */
