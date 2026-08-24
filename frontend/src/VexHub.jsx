@@ -3513,34 +3513,52 @@ function AuthModal({ onClose }) {
     if (!email || !pw) { setErr("Enter your email and password."); return; }
     if (tab === "signup" && pw !== pw2) { setErr("Passwords don't match."); return; }
     setLoading(true);
-    if (tab === "signin") {
-      const { error } = await signIn(email, pw);
-      setLoading(false);
-      if (error) {
-        // Supabase deliberately returns the same generic message whether the
-        // email doesn't exist or the password is wrong (anti-enumeration) —
-        // so give a clear next step either way instead of a dead-end error.
-        setErr("Incorrect email or password. New here? Create an account instead.");
-        return;
+    try {
+      if (tab === "signin") {
+        const { error } = await signIn(email, pw);
+        setLoading(false);
+        if (error) {
+          // Supabase deliberately returns the same generic message whether the
+          // email doesn't exist or the password is wrong (anti-enumeration) —
+          // so give a clear next step either way instead of a dead-end error.
+          setErr("Incorrect email or password. New here? Create an account instead.");
+          return;
+        }
+        onClose();
+      } else {
+        const { data, error } = await signUp(email, pw);
+        setLoading(false);
+        // Supabase's "already registered" signals, checked every way it's known
+        // to surface across project configs/versions — none of these are 100%
+        // guaranteed alone, so any one of them triggers the redirect:
+        //  1. An explicit error naming it (wording varies by version/config).
+        //  2. GoTrue's documented error code for it, when present.
+        //  3. The anti-enumeration trick: signing up an existing *confirmed*
+        //     email returns NO error but a user with an EMPTY identities array
+        //     (rather than leaking that the account exists via a hard error).
+        //  4. An existing but *unconfirmed* email: resubmitting just resends
+        //     the confirmation mail and returns the ORIGINAL user record —
+        //     its created_at is from the earlier signup, not "just now", which
+        //     the identities check alone doesn't catch (identities isn't empty
+        //     for this case since the original identity is already attached).
+        const msg = error?.message || "";
+        const createdAt = data?.user?.created_at ? new Date(data.user.created_at).getTime() : null;
+        const alreadyRegistered =
+          (error && /already\s*(been\s*)?registered|already exists|user.?already.?exists/i.test(msg))
+          || error?.code === "user_already_exists"
+          || (!error && Array.isArray(data?.user?.identities) && data.user.identities.length === 0)
+          || (!error && !data?.session && createdAt && (Date.now() - createdAt > 15_000));
+        if (alreadyRegistered) {
+          switchTab("signin");
+          setErr("You already have an account with this email — sign in instead.");
+          return;
+        }
+        if (error) { setErr(error.message); return; }
+        setDone(true);
       }
-      onClose();
-    } else {
-      const { data, error } = await signUp(email, pw);
+    } catch (e) {
       setLoading(false);
-      // Supabase's own "already registered" signal: with email confirmations
-      // on, signing up an existing *confirmed* email returns no error but a
-      // user with an empty identities array (rather than leaking that the
-      // account exists via an explicit error). Some project configs instead
-      // return an explicit "already registered" error — handle both.
-      const alreadyRegistered = (error && /already registered|already exists/i.test(error.message))
-        || (!error && Array.isArray(data?.user?.identities) && data.user.identities.length === 0);
-      if (alreadyRegistered) {
-        switchTab("signin");
-        setErr("You already have an account with this email — sign in instead.");
-        return;
-      }
-      if (error) { setErr(error.message); return; }
-      setDone(true);
+      setErr(e?.message || "Something went wrong — try again.");
     }
   };
 
