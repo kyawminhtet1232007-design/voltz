@@ -9521,7 +9521,6 @@ function TeamChat() {
 
   const [error,      setError]      = React.useState("");
   const [ready,      setReady]      = React.useState(()=> !!(localStorage.getItem("chat_name") && localStorage.getItem("chat_server_id")));
-  const autoJoinedRef = React.useRef(false); // guards the signed-in auto-join-Community effect
   const [serverId,   setServerId]   = React.useState(()=> localStorage.getItem("chat_server_id") || "");
   const [serverName, setServerName] = React.useState(()=> localStorage.getItem("chat_server_name") || "Team Hub");
   const [channel,  setChannel]  = React.useState("general");
@@ -10212,7 +10211,6 @@ function TeamChat() {
   };
 
   const disconnect = () => {
-    autoJoinedRef.current = true; // a manual leave shouldn't be auto-undone this session
     presenceRef.current?.untrack();
     presenceRef.current?.unsubscribe();
     presenceRef.current = null;
@@ -10229,36 +10227,26 @@ function TeamChat() {
     setMessages([]);
   };
 
-  // Signed-in users who already picked a username (at sign-up) shouldn't be asked
-  // to name themselves a second time — drop them straight into the public Community
-  // using their account identity. They can still open a private Team Server via the
-  // "Leave server" control (which returns them to the full setup screen). The ref
-  // guard means a manual disconnect this session is respected and not auto-undone.
+  // Clicking an invite link (?invite=TOKEN) is a deliberate "join THIS server"
+  // action — like Discord — so it still auto-joins straight in, skipping the
+  // picker. A plain visit to the Community tab is NOT auto-join: it shows the
+  // picker below the FIRST time, same as any brand-new visitor; after that,
+  // `ready`'s localStorage-backed initial state (set once handleSetup succeeds)
+  // is what skips straight to chat on return visits, including navigating away
+  // to another page and back — no special-casing needed for that, it's just
+  // how `ready` already initializes from localStorage on every mount.
+  const invite = parseInvite(new URLSearchParams(window.location.search).get("invite") || "");
+  const pendingInvite = invite && invite !== PUBLIC_SERVER_ID ? invite : "";
+  const inviteJoinedRef = React.useRef(false);
   React.useEffect(() => {
-    if (ready || !user || autoJoinedRef.current) return;
+    if (!pendingInvite || ready || !user || inviteJoinedRef.current) return;
+    inviteJoinedRef.current = true;
+    try { window.history.replaceState({}, "", window.location.pathname); } catch { /* ignore */ }
     const m = user.user_metadata || {};
-    // Same identity source as the Nav (userDisplayName) — username/chat_name first,
-    // but falling back to their Google name / email so ANY signed-in account
-    // auto-joins, not just ones that explicitly went through UsernameSetup.
-    // (A narrower check here previously caused a mismatch: the Nav showed a name
-    // via that fallback while this effect saw nothing and fell through to the
-    // manual setup screen instead of auto-joining.)
-    const uname = accountName;
-    if (!uname || !uname.trim()) return; // no identity yet → let SetupScreen collect one
-    autoJoinedRef.current = true;
     const color = m.chat_color || localStorage.getItem("chat_color") || CHAT_COLORS[0];
-    // If the page was opened from an invite link (?invite=TOKEN), join THAT server;
-    // otherwise drop into the public Community. Clean the token out of the URL so a
-    // later refresh doesn't force a re-join.
-    const invite = parseInvite(new URLSearchParams(window.location.search).get("invite") || "");
-    if (invite && invite !== PUBLIC_SERVER_ID) {
-      try { window.history.replaceState({}, "", window.location.pathname); } catch { /* ignore */ }
-      handleSetup({ serverId: invite, serverName: "", name: uname.trim(), color, isCreator: false });
-    } else {
-      handleSetup({ serverId: PUBLIC_SERVER_ID, serverName: "Voltz Community", name: uname.trim(), color });
-    }
+    handleSetup({ serverId: pendingInvite, serverName: "", name: accountName.trim(), color, isCreator: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, user]);
+  }, [pendingInvite, ready, user]);
 
   // Gate: the Community requires a signed-in account (one account = one identity).
   if (!user) return (
@@ -10282,15 +10270,14 @@ function TeamChat() {
   );
 
   if (!ready) {
-    // If we're about to auto-join the Community (signed-in user with an identity,
-    // not a manual leave), show a brief veil instead of flashing the setup form.
-    const willAutoJoin = !autoJoinedRef.current && !!accountName?.trim(); // same identity source as the effect above
-    if (willAutoJoin) return (
+    // Only a pending invite link auto-joins (see effect above) — show its veil
+    // while that's in flight. Every other case shows the picker.
+    if (pendingInvite) return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3" style={{ background: darkMode ? DARK_PAGE_BG : LIGHT_PAGE_BG }}>
         <div className="w-14 h-14 rounded-full overflow-hidden" style={{ background: "radial-gradient(circle at 50% 32%, #2b2e35, #141519)", animation: "floatIdleSpin 1.6s ease-in-out infinite" }}>
           <VoltLogo size={56} />
         </div>
-        <p style={{ color: darkMode ? "#a1a1aa" : "#6e6e73", fontSize: 13 }}>Joining the Community…</p>
+        <p style={{ color: darkMode ? "#a1a1aa" : "#6e6e73", fontSize: 13 }}>Joining the server…</p>
       </div>
     );
     return (

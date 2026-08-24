@@ -223,7 +223,9 @@
       "Bash(awk -F: '$1>2455 && $1<3380')",
       "Bash(grep -nE \"import \\\\{.*notify|notify,\" src/VexHub.jsx)",
       "Bash(awk -F: '$1>12556 && $1<12680')",
-      "Bash(grep -n \"site_visits\\\\|20260810_analytics\\\\|20260824_feedback\\\\|feedback\\\\` table\" /Users/kyaw/Downloads/PassionPrj/CLAUDE.md)"
+      "Bash(grep -n \"site_visits\\\\|20260810_analytics\\\\|20260824_feedback\\\\|feedback\\\\` table\" /Users/kyaw/Downloads/PassionPrj/CLAUDE.md)",
+      "Bash(curl -s \"https://voltz-ten.vercel.app/\")",
+      "Bash(curl -sI \"https://voltz-ten.vercel.app/assets/index-15fa1c1f.js\")"
     ]
   }
 }
