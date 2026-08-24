@@ -10237,7 +10237,13 @@ function TeamChat() {
   React.useEffect(() => {
     if (ready || !user || autoJoinedRef.current) return;
     const m = user.user_metadata || {};
-    const uname = m.username || m.chat_name || localStorage.getItem("chat_name");
+    // Same identity source as the Nav (userDisplayName) — username/chat_name first,
+    // but falling back to their Google name / email so ANY signed-in account
+    // auto-joins, not just ones that explicitly went through UsernameSetup.
+    // (A narrower check here previously caused a mismatch: the Nav showed a name
+    // via that fallback while this effect saw nothing and fell through to the
+    // manual setup screen instead of auto-joining.)
+    const uname = accountName;
     if (!uname || !uname.trim()) return; // no identity yet → let SetupScreen collect one
     autoJoinedRef.current = true;
     const color = m.chat_color || localStorage.getItem("chat_color") || CHAT_COLORS[0];
@@ -10278,7 +10284,7 @@ function TeamChat() {
   if (!ready) {
     // If we're about to auto-join the Community (signed-in user with an identity,
     // not a manual leave), show a brief veil instead of flashing the setup form.
-    const willAutoJoin = !autoJoinedRef.current && !!(user.user_metadata?.username || user.user_metadata?.chat_name || localStorage.getItem("chat_name"));
+    const willAutoJoin = !autoJoinedRef.current && !!accountName?.trim(); // same identity source as the effect above
     if (willAutoJoin) return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3" style={{ background: darkMode ? DARK_PAGE_BG : LIGHT_PAGE_BG }}>
         <div className="w-14 h-14 rounded-full overflow-hidden" style={{ background: "radial-gradient(circle at 50% 32%, #2b2e35, #141519)", animation: "floatIdleSpin 1.6s ease-in-out infinite" }}>
