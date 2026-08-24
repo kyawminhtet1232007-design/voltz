@@ -11760,7 +11760,7 @@ function Resources() {
           <div className="mb-10" data-reveal="up">
             <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-[0.14em] mb-5"
               style={{ background: "#dc262614", color: "#dc2626" }}>
-              <VoltzBolt size={11} color="#dc2626" /> The Voltz Library
+              <VoltLogo size={16} className="shrink-0" /> The Voltz Library
             </span>
             <h2 className="text-[2.6rem] sm:text-6xl font-semibold tracking-tight leading-[1.02]" style={{ color: "#1d1d1f" }}>
               Read it. Build it.<br />Win with it.
