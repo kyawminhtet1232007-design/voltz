@@ -12063,11 +12063,11 @@ function Resources() {
               ].map(sec=>(
                 <div key={sec.title}>
                   <h3 className={secH}>{sec.title}</h3>
-                  <div className="space-y-2">
-                    {sec.items.map(([k,v])=>(
-                      <div key={k}><span className={kwStack}>{k}</span><span className={vw}>{v}</span></div>
-                    ))}
-                  </div>
+                  {sec.items.map(([k,v])=>(
+                    <div key={k} className="py-2 border-b border-gray-100 last:border-0">
+                      <span className={kwStack}>{k}</span><span className={vw}>{v}</span>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
