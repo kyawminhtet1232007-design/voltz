@@ -3453,9 +3453,30 @@ function GoogleButton({ label = "Continue with Google", onError }) {
   const [busy, setBusy] = React.useState(false);
   const go = async () => {
     setBusy(true);
-    const { error } = (await signInWithGoogle()) || {};
-    if (error) { setBusy(false); onError?.(error.message || "Google sign-in unavailable"); }
-    // on success the browser redirects to Google — no further UI needed.
+    // Failsafe: on success the whole page redirects to Google almost
+    // immediately, so this component unmounts before its state matters.
+    // But if that redirect is blocked or delayed (network hiccup, a browser
+    // extension, a config issue) with no error thrown, the button was
+    // getting stuck on "Redirecting…" forever with zero feedback — recover
+    // after a timeout instead of hanging indefinitely. Cleared on success
+    // (moot — page navigates away) or on any error/thrown exception.
+    const timeout = setTimeout(() => {
+      setBusy(false);
+      onError?.("Google sign-in is taking too long — check your connection, or use email sign-in below.");
+    }, 8000);
+    try {
+      const { error } = (await signInWithGoogle()) || {};
+      if (error) {
+        clearTimeout(timeout);
+        setBusy(false);
+        onError?.(error.message || "Google sign-in unavailable");
+      }
+      // on success the browser redirects to Google — no further UI needed.
+    } catch (e) {
+      clearTimeout(timeout);
+      setBusy(false);
+      onError?.(e?.message || "Google sign-in failed — try email sign-in below.");
+    }
   };
   return (
     <button onClick={go} disabled={busy}
@@ -10291,7 +10312,8 @@ function TeamChat() {
         <p className="text-sm leading-relaxed mb-6" style={{ color: "#6e6e73" }}>
           Sign in to chat with other VEX teams.
         </p>
-        <GoogleButton />
+        <GoogleButton onError={setError} />
+        {error && <p className="text-red-500 text-xs mt-2 text-left">{error}</p>}
         <button onClick={() => window.dispatchEvent(new CustomEvent("voltz-open-auth"))}
           className="w-full mt-2.5 py-3 rounded-xl text-sm font-semibold transition hover:bg-gray-50"
           style={{ border: "1px solid #dcdce3", color: "#1d1d1f", background: "#fff" }}>
