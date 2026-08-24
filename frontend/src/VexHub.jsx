@@ -11338,6 +11338,8 @@ function Resources() {
   const row = "grid grid-cols-[6.5rem,1fr] gap-x-4 items-baseline border-b border-gray-100 last:border-0";
   const kw  = "text-[11px] font-semibold uppercase tracking-[0.05em] text-[#9a9aa2] leading-relaxed";
   const vw  = "text-[15px] text-[#3a3a3c] leading-relaxed";
+  // Stacked eyebrow label sitting above its value (for narrow / phrase-label rows).
+  const kwStack = "block text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9a9aa2] mb-0.5";
   // Numbered-step rows (accent number in a narrow column, aligned to the text).
   const numRow = "grid grid-cols-[1.6rem,1fr] gap-x-2 items-baseline border-b border-gray-100 last:border-0";
   const secH = "text-base font-bold text-gray-900 mb-3 pb-2 border-b border-gray-100";
@@ -11919,7 +11921,7 @@ function Resources() {
                   ["Tips","Pre-charge before every match. Double-action pistons push and pull; single-action springs back."],
                 ].map(([n,d])=>(
                   <div key={n} className="py-2 border-b border-gray-100 last:border-0">
-                    <p className="text-sm font-bold text-gray-900">{n}</p>
+                    <p className={kwStack}>{n}</p>
                     <p className="text-sm text-[#48484a] mt-0.5 leading-snug">{d}</p>
                   </div>
                 ))}
@@ -11938,7 +11940,7 @@ function Resources() {
                   ["Re-check after transport","Robots shift in transit. Check all connections before each event."],
                 ].map(([n,d])=>(
                   <div key={n} className="py-2 border-b border-gray-100 last:border-0">
-                    <p className="text-sm font-bold text-gray-900">{n}</p>
+                    <p className={kwStack}>{n}</p>
                     <p className="text-sm text-[#48484a] mt-0.5 leading-snug">{d}</p>
                   </div>
                 ))}
@@ -12064,7 +12066,7 @@ function Resources() {
                   <h3 className={secH}>{sec.title}</h3>
                   <div className="space-y-2">
                     {sec.items.map(([k,v])=>(
-                      <div key={k}><span className="text-sm font-semibold text-gray-900">{k} </span><span className="text-[15px] text-[#48484a]">{v}</span></div>
+                      <div key={k}><span className={kwStack}>{k}</span><span className={vw}>{v}</span></div>
                     ))}
                   </div>
                 </div>
@@ -12140,8 +12142,8 @@ function Resources() {
                   ["Professional Format","Dated and signed each page, page numbers, contents."],
                 ].map(([k,v])=>(
                   <div key={k} className="py-2 border-b border-gray-100 last:border-0">
-                    <span className="text-sm font-semibold text-gray-900">{k} </span>
-                    <span className="text-[15px] text-[#48484a]">{v}</span>
+                    <span className={kwStack}>{k}</span>
+                    <span className={vw}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -12168,8 +12170,8 @@ function Resources() {
                     ["Describe failures","Judges value teams that learned from what didn't work."],
                   ].map(([k,v])=>(
                     <div key={k} className="py-2 border-b border-gray-100 last:border-0">
-                      <span className="text-sm font-semibold text-gray-900">{k} </span>
-                      <span className="text-[15px] text-[#48484a]">{v}</span>
+                      <span className={kwStack}>{k}</span>
+                      <span className={vw}>{v}</span>
                     </div>
                   ))}
                 </div>
