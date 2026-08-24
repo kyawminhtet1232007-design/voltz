@@ -13034,6 +13034,10 @@ function VexLearningHubInner() {
   const [navPage, setNavPage] = useState(hasInvite ? "community" : "home");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [lessonsNonce, setLessonsNonce] = useState(0);
+  // True for the brief window between "OAuth returned on the wrong tab" and
+  // "signed back out + modal reopened" — see the effect below. Renders a full
+  // veil in place of the whole app so the Nav never flashes signed-in.
+  const [googleIntentFixing, setGoogleIntentFixing] = useState(false);
   const { user, authLoading } = useAuth();
 
   // Record one visit per browser session for the owner analytics counter.
@@ -13052,7 +13056,13 @@ function VexLearningHubInner() {
   // account, that's the wrong tab for what actually happened — sign them
   // back out and reopen the modal on the tab that matches reality, so Google
   // is held to the same rule as the email/password fields.
-  React.useEffect(() => {
+  //
+  // useLayoutEffect (not useEffect) + the googleIntentFixing veil below: a
+  // plain effect runs AFTER the browser paints, so the Nav would flash fully
+  // signed-in (avatar, name) for a frame before flipping back — a visible
+  // glitch. Flipping the veil on synchronously, before paint, means the very
+  // first frame after the OAuth redirect already shows the veil instead.
+  React.useLayoutEffect(() => {
     if (authLoading || !user) return;
     let intent;
     try { intent = localStorage.getItem(GOOGLE_OAUTH_INTENT_KEY); } catch { intent = null; }
@@ -13062,6 +13072,7 @@ function VexLearningHubInner() {
     const isBrandNew = createdAt !== null && (Date.now() - createdAt < 15_000);
     const wrongTab = (intent === "signup" && !isBrandNew) || (intent === "signin" && isBrandNew);
     if (!wrongTab) return;
+    setGoogleIntentFixing(true);
     getSB()?.auth.signOut().then(() => {
       notify(
         intent === "signup"
@@ -13070,6 +13081,7 @@ function VexLearningHubInner() {
         { level: "error" }
       );
       setAuthModalOpen(true);
+      setGoogleIntentFixing(false);
     });
   }, [user, authLoading]);
 
@@ -13098,6 +13110,18 @@ function VexLearningHubInner() {
   };
   // Only the two genuinely heavy pages warrant a loading veil.
   const heavyLoading = isPending && (navPage === "codelab" || navPage === "cad");
+
+  // Replaces the ENTIRE app (not just an overlay) so nothing underneath —
+  // Nav included — ever paints in its briefly-signed-in state. See the
+  // useLayoutEffect above for why this needs to be pre-paint, not just early.
+  if (googleIntentFixing) return (
+    <div className="fixed inset-0 flex flex-col items-center justify-center gap-4" style={{ background: LIGHT_PAGE_BG, zIndex: 9999 }}>
+      <div className="w-16 h-16 rounded-full overflow-hidden" style={{ animation: "floatIdleSpin 1.4s ease-in-out infinite", background: "radial-gradient(circle at 50% 32%, #2b2e35, #141519)" }}>
+        <VoltLogo size={64} />
+      </div>
+      <p className="text-sm font-medium" style={{ color: "#6e6e73" }}>One moment…</p>
+    </div>
+  );
 
   return (
     <div className="font-sans overflow-x-hidden">
