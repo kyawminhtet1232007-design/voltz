@@ -227,7 +227,8 @@
       "Bash(curl -s \"https://voltz-ten.vercel.app/\")",
       "Bash(curl -sI \"https://voltz-ten.vercel.app/assets/index-15fa1c1f.js\")",
       "Bash(awk -F: '$1>13000 && $1<13140')",
-      "Bash(git commit -q -m 'Resources: fix old-art flash reappearing on page revisits *)"
+      "Bash(git commit -q -m 'Resources: fix old-art flash reappearing on page revisits *)",
+      "Bash(grep -n \"SignInPrompt\\\\` = engagement-triggered\" /Users/kyaw/Downloads/PassionPrj/CLAUDE.md)"
     ]
   }
 }

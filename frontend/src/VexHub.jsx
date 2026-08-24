@@ -18,7 +18,10 @@ import {
 // Refinement: styled toast + async confirm replacing native alert()/window.confirm()
 import { ToastHost, notify, confirmDialog } from "./lib/notify.jsx";
 // Visitor analytics + engagement-triggered sign-in nudge (pure logic + tests).
-import { getVisitorId, isNewSession, shouldPromptSignIn, getLastPromptAt, markPromptShown } from "./lib/analytics.js";
+// shouldPromptSignIn/getLastPromptAt/markPromptShown are still exported + tested
+// in lib/analytics.js, but no longer imported here — SignInPrompt is now a hard
+// timed gate rather than an engagement-triggered, cooled-down nudge.
+import { getVisitorId, isNewSession } from "./lib/analytics.js";
 // Refinement: per-field input sanitizers (digits-only / letters-only / VEX team number)
 import { sanitizeLetters, sanitizeTeamNumber } from "./lib/sanitizers.js";
 // Refinement: GSAP ScrollTrigger design language — elements marked data-reveal
@@ -3976,56 +3979,43 @@ function UsernameSetup() {
   );
 }
 
+// Hard sign-in gate: 30s after a signed-out visitor lands, this covers the app
+// and can't be dismissed — no "Maybe later", no backdrop-click close, no
+// cooldown. (Previously this was a soft, dismissible nudge gated on time AND
+// scroll depth via shouldPromptSignIn(); those helpers stay in lib/analytics.js
+// but are no longer what drives this component.) Signing in is the only way
+// past it, so keep an eye on bounce/signup numbers after changing this.
+const FORCE_SIGNIN_AFTER_MS = 30_000;
 function SignInPrompt() {
   const { user } = useAuth();
   const [show, setShow]   = React.useState(false);
   const [err, setErr]     = React.useState("");
-  const scrolledRef       = React.useRef(0);
-  const startRef          = React.useRef(Date.now());
 
   React.useEffect(() => {
-    if (user) return; // signed in — nothing to nudge
-    const onScroll = () => { scrolledRef.current = Math.max(scrolledRef.current, window.scrollY || 0); };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    const iv = setInterval(() => {
-      const decide = shouldPromptSignIn({
-        signedIn: false,
-        elapsedMs: Date.now() - startRef.current,
-        scrolledPx: scrolledRef.current,
-        lastPromptAt: getLastPromptAt(),
-        now: Date.now(),
-      });
-      if (decide) { setShow(true); markPromptShown(null, Date.now()); clearInterval(iv); }
-    }, 5000);
-    return () => { window.removeEventListener("scroll", onScroll); clearInterval(iv); };
+    if (user) { setShow(false); return; } // signed in — never gate
+    const t = setTimeout(() => setShow(true), FORCE_SIGNIN_AFTER_MS);
+    return () => clearTimeout(t);
   }, [user]);
 
   if (!show || user) return null;
-  const close = () => setShow(false);
   return (
-    <div className="fixed inset-0 z-[190] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
-      onClick={(e) => e.target === e.currentTarget && close()}>
+    <div className="fixed inset-0 z-[190] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
       <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden" data-reveal="scale">
         <div className="p-7 sm:p-8">
           <div className="w-14 h-14 rounded-full overflow-hidden mx-auto mb-4"
             style={{ background: "radial-gradient(circle at 50% 32%, #2b2e35, #141519)" }}>
             <VoltLogo size={56} />
           </div>
-          <h3 className="text-xl font-semibold tracking-tight text-center mb-1.5" style={{ color: "#1d1d1f" }}>Save your progress</h3>
+          <h3 className="text-xl font-semibold tracking-tight text-center mb-1.5" style={{ color: "#1d1d1f" }}>Sign in to keep going</h3>
           <p className="text-sm text-center leading-relaxed mb-6" style={{ color: "#6e6e73" }}>
-            Sign in to sync your dashboard, goals, and notebook across devices — and pick up right where you left off. It's free.
+            Create a free account to keep using Voltz — lessons, Code Lab, CAD, and the Community, with your progress synced across devices.
           </p>
           {err && <p className="text-red-500 text-xs text-center mb-3">{err}</p>}
           <GoogleButton onError={setErr} />
-          <button onClick={() => { window.dispatchEvent(new CustomEvent("voltz-open-auth")); close(); }}
+          <button onClick={() => window.dispatchEvent(new CustomEvent("voltz-open-auth"))}
             className="w-full mt-2.5 py-3 rounded-xl text-sm font-semibold transition hover:bg-gray-50"
             style={{ border: "1px solid #dcdce3", color: "#1d1d1f", background: "#fff" }}>
             Sign in with email
-          </button>
-          <button onClick={close}
-            className="w-full mt-2 py-2 rounded-xl text-sm font-medium transition hover:bg-gray-50"
-            style={{ color: "#6e6e73" }}>
-            Maybe later
           </button>
         </div>
       </div>
