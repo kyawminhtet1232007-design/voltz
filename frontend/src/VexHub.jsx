@@ -7457,10 +7457,10 @@ const isChatReady = () => !!(localStorage.getItem("chat_name") && localStorage.g
 // breaks. Owner reads aggregate counts via the get_site_stats() RPC, which
 // returns counts only (no raw rows/PII).
 const analyticsLog = createLogger("analytics");
-async function recordVisit(userId) {
+async function recordVisit(userId, { force = false } = {}) {
   const sb = getSB();
   if (!sb) return;
-  if (!isNewSession()) return; // one visit row per tab-session
+  if (!force && !isNewSession()) return; // one visit row per tab-session, unless forced
   try {
     const { error } = await sb.from("site_events").insert({
       kind: "visit",
@@ -13220,7 +13220,28 @@ function VexLearningHubInner() {
   // returning signed-in user's visit carries their user_id — otherwise it logs
   // before auth resolves and signed_in_users always reads 0. isNewSession() in
   // recordVisit still guards against duplicate rows. Fire-and-forget.
-  React.useEffect(() => { if (!authLoading) recordVisit(user?.id); }, [authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+  const initialAuthUserRef = React.useRef(undefined); // undefined = not yet snapshotted
+  React.useEffect(() => {
+    if (authLoading) return;
+    if (initialAuthUserRef.current === undefined) initialAuthUserRef.current = user ?? null; // snapshot once, at the moment auth resolves
+    recordVisit(user?.id);
+  }, [authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The effect above only runs ONCE, right when auth first resolves — it never
+  // re-fires just because `user` changes later. So someone who lands signed
+  // OUT and signs in mid-session was recorded with user_id=null forever,
+  // undercounting signed_in_users. Catch that one transition (signed-out ->
+  // signed-in, within this page load) and force one extra visit row carrying
+  // their user_id — same visitor_id, so unique_visitors is unaffected; only
+  // fires for a genuine sign-in-during-visit, not for someone already signed
+  // in on load (that's already handled correctly by the effect above).
+  const signInVisitFiredRef = React.useRef(false);
+  React.useEffect(() => {
+    if (authLoading || !user || signInVisitFiredRef.current) return;
+    if (initialAuthUserRef.current !== null) return; // was already signed in at load — nothing to catch up
+    signInVisitFiredRef.current = true;
+    recordVisit(user.id, { force: true });
+  }, [user, authLoading]);
 
   // Enforce Sign In vs Create Account for Google too (see GoogleButton's
   // comment) — the OAuth redirect itself can't tell Supabase "only if this
