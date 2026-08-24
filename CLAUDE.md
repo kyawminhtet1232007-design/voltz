@@ -87,7 +87,7 @@ PassionPrj/
 | Lines | Name | Purpose |
 |---|---|---|
 | 41–224 | `defaultStore`, `loadStore`, `saveStore`, `getStore`, `StoreProvider`/`useStore` | LocalStorage-backed app state: study time, skill %, badges, activity feed |
-| 229–386 | `AuthProvider` / `useAuth` | Supabase Auth context — `user`, `signIn`/`signUp` (email+password), `signInWithGoogle` (OAuth, redirects to Google consent), `signOut`. Drives dashboard cloud sync + the sign-in nudge |
+| 229–386 | `AuthProvider` / `useAuth` | Supabase Auth context — `user`, `signIn`/`signUp` (email+password), `signInWithGoogle` (OAuth, redirects to Google consent), `signOut`, `resetPasswordForEmail` (mails a one-time reset link), `passwordRecovery`/`updatePasswordAndClearRecovery` (set true by the `PASSWORD_RECOVERY` auth event when someone clicks that link; `ResetPasswordModal` gates them into setting a new password, then clears it). Drives dashboard cloud sync + the sign-in nudge |
 | 387–2454 | (large block of C++/VEXcode reference snippets — used as Code Lab lesson/example content, not executable app code) | |
 | 2455–3375 | `CodeLab()` | Monaco-based code editor page + AI assistant chat (Rio) for coding help |
 | 3376–3477 | `ChatMessage`, `AuthModal` | Shared chat bubble UI; sign-in modal |

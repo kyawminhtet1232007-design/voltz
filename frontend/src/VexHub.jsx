@@ -247,6 +247,12 @@ const AuthCtx = React.createContext(null);
 function AuthProvider({ children }) {
   const [user, setUser]               = React.useState(null);
   const [authLoading, setAuthLoading] = React.useState(true);
+  // True for the window between someone clicking a "reset your password" email
+  // link and actually setting a new one. Supabase's recovery link signs them
+  // in via a short-lived token and fires this specific event so the app can
+  // gate them into a "set new password" screen instead of dropping them
+  // straight into the app as if they'd signed in normally.
+  const [passwordRecovery, setPasswordRecovery] = React.useState(false);
 
   React.useEffect(() => {
     const sb = getSB();
@@ -255,8 +261,9 @@ function AuthProvider({ children }) {
       setUser(session?.user ?? null);
       setAuthLoading(false);
     });
-    const { data: { subscription } } = sb.auth.onAuthStateChange((_ev, session) => {
+    const { data: { subscription } } = sb.auth.onAuthStateChange((ev, session) => {
       setUser(session?.user ?? null);
+      if (ev === "PASSWORD_RECOVERY") setPasswordRecovery(true);
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -264,6 +271,19 @@ function AuthProvider({ children }) {
   const signIn  = (email, pw) => getSB().auth.signInWithPassword({ email, password: pw });
   const signUp  = (email, pw) => getSB().auth.signUp({ email, password: pw });
   const signOut = ()          => getSB().auth.signOut();
+  // Emails a one-time reset link; clicking it brings them back here signed in
+  // via a recovery session, which flips passwordRecovery above.
+  const resetPasswordForEmail = (email) => {
+    const sb = getSB();
+    if (!sb) return Promise.resolve({ error: { message: "Auth unavailable" } });
+    return sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+  };
+  // Sets the new password during a recovery session, then clears the gate.
+  const updatePasswordAndClearRecovery = async (newPassword) => {
+    const { error } = await getSB().auth.updateUser({ password: newPassword });
+    if (!error) setPasswordRecovery(false);
+    return { error };
+  };
   // Google OAuth — redirects to Google's consent screen, then back to the app.
   // Requires the Google provider enabled in the Supabase dashboard (see SECURITY.md).
   const signInWithGoogle = () => {
@@ -281,7 +301,7 @@ function AuthProvider({ children }) {
   };
 
   return (
-    <AuthCtx.Provider value={{ user, authLoading, signIn, signUp, signOut, signInWithGoogle }}>
+    <AuthCtx.Provider value={{ user, authLoading, signIn, signUp, signOut, signInWithGoogle, resetPasswordForEmail, passwordRecovery, updatePasswordAndClearRecovery }}>
       {children}
     </AuthCtx.Provider>
   );
@@ -3509,7 +3529,7 @@ function GoogleButton({ label = "Continue with Google", onError, intent }) {
 }
 
 function AuthModal({ onClose }) {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resetPasswordForEmail } = useAuth();
   const [tab, setTab]   = React.useState("signin"); // "signin" | "signup"
   const [email, setEmail]   = React.useState("");
   const [pw, setPw]         = React.useState("");
@@ -3517,11 +3537,34 @@ function AuthModal({ onClose }) {
   const [loading, setLoading] = React.useState(false);
   const [err, setErr]       = React.useState("");
   const [done, setDone]     = React.useState(false);
+  const [showReset, setShowReset] = React.useState(false); // "Forgot password?" mini-flow
+  const [resetSent, setResetSent] = React.useState(false);
 
   // Switch tabs without losing what they typed — used both by the manual
   // "Sign in instead" / "Create an account" links and by the auto-redirect
   // below when someone lands on the wrong tab for their email.
-  const switchTab = (t) => { setTab(t); setErr(""); setPw(""); setPw2(""); };
+  const switchTab = (t) => { setTab(t); setErr(""); setPw(""); setPw2(""); setShowReset(false); setResetSent(false); };
+
+  // Emails a one-time reset link (Supabase's own flow — a click brings them
+  // back here signed in via a recovery session; ResetPasswordModal, mounted
+  // in the app shell, then gates them into setting a new password).
+  const sendReset = async () => {
+    setErr("");
+    if (!email) { setErr("Enter your email first."); return; }
+    setLoading(true);
+    try {
+      const { error } = await resetPasswordForEmail(email);
+      setLoading(false);
+      // Same anti-enumeration shape as sign-up/sign-in: Supabase doesn't
+      // reveal whether the email exists, so this "sends" either way — that's
+      // intentional, not a bug to work around.
+      if (error) { setErr(error.message); return; }
+      setResetSent(true);
+    } catch (e) {
+      setLoading(false);
+      setErr(e?.message || "Something went wrong — try again.");
+    }
+  };
 
   const submit = async () => {
     setErr("");
@@ -3606,6 +3649,40 @@ function AuthModal({ onClose }) {
               <p className="text-gray-400 text-sm">We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account.</p>
               <button onClick={onClose} className="mt-6 w-full py-3 rounded-xl bg-red-600 text-white font-bold text-sm hover:opacity-90 transition">Done</button>
             </div>
+          ) : showReset ? (
+            resetSent ? (
+              <div className="text-center py-4">
+                <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                  <svg width="24" height="20" viewBox="0 0 24 20" fill="none"><path d="M2 10l7 7L22 2" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
+                <p className="text-gray-900 font-bold text-lg mb-1">Check your email</p>
+                <p className="text-gray-400 text-sm">If <strong>{email}</strong> has an account, we sent a link to reset the password. Click it to set a new one.</p>
+                <button onClick={() => { setShowReset(false); setResetSent(false); }}
+                  className="mt-6 w-full py-3 rounded-xl bg-red-600 text-white font-bold text-sm hover:opacity-90 transition">Back to Sign In</button>
+              </div>
+            ) : (
+              <>
+                <p className="text-gray-900 font-bold text-lg mb-1">Reset your password</p>
+                <p className="text-gray-400 text-sm mb-5">Enter your email and we'll send you a link to set a new password.</p>
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">Email</label>
+                  <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
+                    placeholder="you@example.com" onKeyDown={e=>e.key==="Enter"&&sendReset()} autoFocus
+                    className="w-full rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none"
+                    style={LIGHT_CARD}/>
+                </div>
+                {err && <p className="text-red-500 text-xs mt-2">{err}</p>}
+                <button onClick={sendReset} disabled={loading}
+                  className="mt-4 w-full py-3 rounded-xl text-white font-bold text-sm transition hover:opacity-90 disabled:opacity-60"
+                  style={{background:"#dc2626"}}>
+                  {loading ? "..." : "Send reset link"}
+                </button>
+                <button onClick={() => { setShowReset(false); setErr(""); }}
+                  className="w-full mt-2 py-2 text-sm font-medium text-gray-400 hover:text-gray-600 transition">
+                  ← Back to Sign In
+                </button>
+              </>
+            )
           ) : (<>
             {/* Tabs */}
             <div className="flex gap-1 p-1 rounded-xl mb-6" style={{background:"#f3f4f6"}}>
@@ -3640,7 +3717,15 @@ function AuthModal({ onClose }) {
                   style={LIGHT_CARD}/>
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">Password</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Password</label>
+                  {tab === "signin" && (
+                    <button type="button" onClick={() => { setShowReset(true); setErr(""); }}
+                      className="text-xs font-semibold text-red-500 hover:underline">
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
                 <input type="password" value={pw} onChange={e=>setPw(e.target.value)}
                   placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&submit()}
                   className="w-full rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none"
@@ -3754,6 +3839,79 @@ function GoogleOneTap() {
 // visitor has actually explored (time on site + scroll depth), is dismissible,
 // and won't reappear for days (cooldown). Signed-in users never see it. All
 // thresholds + the decision live in lib/analytics.js (pure + tested).
+// Gates someone into setting a new password right after they click a "reset
+// your password" email link (AuthModal's "Forgot password?" -> Supabase mails
+// a link -> clicking it signs them in via a short-lived recovery session and
+// fires the PASSWORD_RECOVERY event, which AuthProvider turns into
+// passwordRecovery=true). `visible` is a local latch set once from that flag
+// rather than reading it directly on every render — updatePasswordAndClear
+// Recovery() clears passwordRecovery the instant it succeeds, which would
+// otherwise unmount this modal before its own "password updated" message
+// ever had a chance to show.
+function ResetPasswordModal() {
+  const { passwordRecovery, updatePasswordAndClearRecovery } = useAuth() || {};
+  const [visible, setVisible] = React.useState(false);
+  React.useEffect(() => { if (passwordRecovery) setVisible(true); }, [passwordRecovery]);
+  const [pw, setPw]     = React.useState("");
+  const [pw2, setPw2]   = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+  const [err, setErr]   = React.useState("");
+  const [done, setDone] = React.useState(false);
+  if (!visible) return null;
+  const save = async () => {
+    setErr("");
+    if (pw.length < 6) { setErr("Password must be at least 6 characters."); return; }
+    if (pw !== pw2) { setErr("Passwords don't match."); return; }
+    setSaving(true);
+    const { error } = await updatePasswordAndClearRecovery(pw);
+    setSaving(false);
+    if (error) { setErr(error.message || "Could not update password — try again."); return; }
+    setDone(true);
+  };
+  return (
+    <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-8">
+        {done ? (
+          <div className="text-center py-4">
+            <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+              <svg width="24" height="20" viewBox="0 0 24 20" fill="none"><path d="M2 10l7 7L22 2" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+            <p className="text-gray-900 font-bold text-lg mb-1">Password updated</p>
+            <p className="text-gray-400 text-sm mb-5">You're signed in with your new password.</p>
+            <button onClick={() => setVisible(false)}
+              className="w-full py-3 rounded-xl bg-red-600 text-white font-bold text-sm hover:opacity-90 transition">
+              Continue
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="w-14 h-14 rounded-full overflow-hidden mx-auto mb-4" style={{ background: "radial-gradient(circle at 50% 32%, #2b2e35, #141519)" }}>
+              <VoltLogo size={56} />
+            </div>
+            <h3 className="text-xl font-semibold tracking-tight text-center mb-1.5" style={{ color: "#1d1d1f" }}>Set a new password</h3>
+            <p className="text-sm text-center leading-relaxed mb-5" style={{ color: "#6e6e73" }}>
+              Choose a new password for your account.
+            </p>
+            <div className="space-y-3">
+              <input type="password" value={pw} onChange={(e) => { setPw(e.target.value); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && save()}
+                placeholder="New password" autoFocus
+                className="w-full rounded-xl px-4 py-3 text-sm text-gray-900 outline-none" style={LIGHT_CARD} />
+              <input type="password" value={pw2} onChange={(e) => { setPw2(e.target.value); setErr(""); }} onKeyDown={(e) => e.key === "Enter" && save()}
+                placeholder="Confirm new password"
+                className="w-full rounded-xl px-4 py-3 text-sm text-gray-900 outline-none" style={LIGHT_CARD} />
+            </div>
+            {err && <p className="text-red-500 text-xs mt-2">{err}</p>}
+            <button onClick={save} disabled={saving}
+              className="mt-4 w-full py-3 rounded-xl text-white font-bold text-sm transition hover:opacity-90 disabled:opacity-60" style={{ background: "#dc2626" }}>
+              {saving ? "Saving…" : "Update password"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // One-time username prompt shown right after a user signs in without a username
 // set. The chosen name becomes their identity everywhere — the Nav corner (in
 // place of their email) and the Community chat — so they can never be confused
@@ -13146,6 +13304,7 @@ function VexLearningHubInner() {
       <GoogleOneTap />
       <SignInPrompt />
       <UsernameSetup />
+      <ResetPasswordModal />
 
       {/* Loading veil while a heavy page (Code Lab editor / CAD 3D engine) mounts */}
       {heavyLoading && (
