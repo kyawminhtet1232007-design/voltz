@@ -11183,15 +11183,28 @@ function TeamChat() {
 // so dropping a JPG into /public makes the photo appear with zero code changes.
 function GuideArt({ id, accent, img, imgPos = "center" }) {
   const [failed, setFailed] = React.useState(false);
+  // Track "actually decoded and ready to paint" rather than just "started
+  // loading" — otherwise the illustrated SVG and the photo both mount at once
+  // and the SVG is visible underneath for a frame before the photo paints over
+  // it (the "old image glitch" on open). Lazy-init from `img.complete` so an
+  // already-cached photo (e.g. revisiting the hub) never even flashes once.
+  const [loaded, setLoaded] = React.useState(() => {
+    if (!img || typeof window === "undefined") return false;
+    const probe = new window.Image();
+    probe.src = img;
+    return probe.complete && probe.naturalWidth > 0;
+  });
+  const showPhoto = img && !failed && loaded;
   return (
     <>
-      <ChapterArt id={id} accent={accent} />
+      {/* Only one of these two is ever visible — never layered — so there is
+          nothing for the photo to "pop in" over. */}
+      {!showPhoto && <ChapterArt id={id} accent={accent} />}
       {img && !failed && (
-        // Full-bleed: the photo fills the whole panel edge-to-edge (no bars).
-        // `imgPos` keeps the important part of each photo in frame.
-        <img src={img} alt="" draggable={false} onError={() => setFailed(true)}
+        <img src={img} alt="" draggable={false}
+          onLoad={() => setLoaded(true)} onError={() => setFailed(true)}
           className="absolute inset-0 w-full h-full object-cover"
-          style={{ objectPosition: imgPos }} />
+          style={{ objectPosition: imgPos, opacity: showPhoto ? 1 : 0 }} />
       )}
     </>
   );
