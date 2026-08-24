@@ -7781,7 +7781,6 @@ function SeasonGoals({ store, update }) {
                   <p className="text-gray-400 text-sm flex-1 line-through truncate">{g.text}</p>
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium"
                     style={{background:`${cat.color}18`,color:cat.color}}>{cat.label}</span>
-                  <button onClick={()=>toggleGoal(g.id)} className="text-gray-300 hover:text-gray-500 text-xs transition">↩</button>
                   <button onClick={()=>deleteGoal(g.id)} className="text-gray-300 hover:text-red-500 text-sm transition">✕</button>
                 </div>
               );
