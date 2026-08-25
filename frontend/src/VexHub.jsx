@@ -3538,6 +3538,25 @@ function GoogleButton({ label = "Continue with Google", onError, intent }) {
   );
 }
 
+// Races an auth call against a timeout so a hung request can't leave the
+// button spinning forever with no error. Supabase's client has no built-in
+// timeout: if the network stalls (slow/filtered connection, an unreachable
+// region, a proxy that drops the request) the promise may simply never
+// settle, so try/catch alone never fires — the user just waits at a frozen
+// "..." button, which is exactly what happened. Rejecting after 20s at least
+// surfaces a real, actionable message.
+const AUTH_TIMEOUT_MS = 20_000;
+function withAuthTimeout(promise, ms = AUTH_TIMEOUT_MS) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(
+        "This is taking too long — check your internet connection and try again. If it keeps failing, try Continue with Google instead."
+      )), ms)
+    ),
+  ]);
+}
+
 function AuthModal({ onClose, defaultEmail = "" }) {
   const { signIn, signUp, resetPasswordForEmail } = useAuth();
   const [tab, setTab]   = React.useState("signin"); // "signin" | "signup"
@@ -3563,7 +3582,7 @@ function AuthModal({ onClose, defaultEmail = "" }) {
     if (!email) { setErr("Enter your email first."); return; }
     setLoading(true);
     try {
-      const { error } = await resetPasswordForEmail(email);
+      const { error } = await withAuthTimeout(resetPasswordForEmail(email));
       setLoading(false);
       // Same anti-enumeration shape as sign-up/sign-in: Supabase doesn't
       // reveal whether the email exists, so this "sends" either way — that's
@@ -3583,7 +3602,7 @@ function AuthModal({ onClose, defaultEmail = "" }) {
     setLoading(true);
     try {
       if (tab === "signin") {
-        const { error } = await signIn(email, pw);
+        const { error } = await withAuthTimeout(signIn(email, pw));
         setLoading(false);
         if (error) {
           // Supabase deliberately returns the same generic message whether the
@@ -3594,7 +3613,7 @@ function AuthModal({ onClose, defaultEmail = "" }) {
         }
         onClose();
       } else {
-        const { data, error } = await signUp(email, pw);
+        const { data, error } = await withAuthTimeout(signUp(email, pw));
         setLoading(false);
         // Supabase's "already registered" signals, checked every way it's known
         // to surface across project configs/versions — none of these are 100%
