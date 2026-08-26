@@ -247,6 +247,11 @@ function useStore() { return React.useContext(StoreCtx); }
 //  AUTH CONTEXT  (Supabase Auth)
 // ─────────────────────────────────────────────────────────────────
 const AuthCtx = React.createContext(null);
+// Auth lifecycle logging — a "why was I logged out?" report is otherwise
+// impossible to diagnose after the fact. Entries land in the ring buffer that
+// ErrorBoundary's "Copy diagnostics" exposes.
+const authLog = createLogger("auth");
+
 function AuthProvider({ children }) {
   const [user, setUser]               = React.useState(null);
   const [authLoading, setAuthLoading] = React.useState(true);
@@ -260,15 +265,52 @@ function AuthProvider({ children }) {
   React.useEffect(() => {
     const sb = getSB();
     if (!sb) { setAuthLoading(false); return; }
-    sb.auth.getSession().then(({ data: { session } }) => {
+    // Never let a hung/failed session restore leave the app stuck in
+    // authLoading forever (which blocks the visit tracker and renders the
+    // signed-out UI indefinitely) — resolve it either way.
+    let settled = false;
+    const settle = (session) => {
+      if (settled) return;
+      settled = true;
       setUser(session?.user ?? null);
       setAuthLoading(false);
-    });
+    };
+    sb.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        if (error) authLog.warn("getSession failed — treating as signed out", { msg: error.message });
+        settle(session);
+      })
+      .catch((e) => { authLog.warn("getSession threw", { msg: e?.message }); settle(null); });
+    const restoreTimeout = setTimeout(() => {
+      if (!settled) { authLog.warn("Session restore timed out — continuing signed out"); settle(null); }
+    }, 8000);
+
     const { data: { subscription } } = sb.auth.onAuthStateChange((ev, session) => {
+      settle(session);              // also covers first-load OAuth/recovery redirects
       setUser(session?.user ?? null);
       if (ev === "PASSWORD_RECOVERY") setPasswordRecovery(true);
+      // Surface the events that silently end a session, so a mysterious
+      // "I got logged out" has a trail in the diagnostics ring buffer.
+      if (ev === "TOKEN_REFRESHED") authLog.debug("token refreshed");
+      if (ev === "SIGNED_OUT")      authLog.info("signed out", { hadSession: !!session });
     });
-    return () => subscription.unsubscribe();
+
+    // A tab left open/backgrounded for a long time can come back with an
+    // expired token; autoRefreshToken usually handles it, but re-checking on
+    // focus makes a stale tab recover immediately instead of on next API call.
+    const recheck = () => {
+      if (document.visibilityState !== "visible") return;
+      sb.auth.getSession()
+        .then(({ data: { session } }) => setUser(session?.user ?? null))
+        .catch(() => { /* offline — leave state as-is rather than false-logout */ });
+    };
+    document.addEventListener("visibilitychange", recheck);
+
+    return () => {
+      clearTimeout(restoreTimeout);
+      document.removeEventListener("visibilitychange", recheck);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn  = (email, pw) => getSB().auth.signInWithPassword({ email, password: pw });
@@ -7446,7 +7488,21 @@ function getSB() {
     return null;
   }
   try {
-    _sbInst = createSupabaseClient(SUPABASE_URL, SUPABASE_KEY);
+    _sbInst = createSupabaseClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        // PKCE instead of the older implicit flow. Implicit returns the access
+        // token in the URL *fragment*, which is fragile: fragments are dropped
+        // by some redirects/proxies and the raw token is exposed in history.
+        // PKCE returns a short-lived one-time code exchanged server-side for
+        // the session — the flow Supabase recommends for browser apps.
+        flowType: "pkce",
+        // Explicit rather than relying on defaults, so session behaviour can't
+        // silently change under us on a library upgrade:
+        persistSession: true,      // survive reloads/tab closes (localStorage)
+        autoRefreshToken: true,    // refresh before expiry -> no surprise logouts
+        detectSessionInUrl: true,  // complete the OAuth/recovery redirect on load
+      },
+    });
     sbLog.info("Supabase client initialized");
   } catch (e) {
     _sbInitFailed = true;

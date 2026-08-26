@@ -228,7 +228,21 @@
       "Bash(curl -sI \"https://voltz-ten.vercel.app/assets/index-15fa1c1f.js\")",
       "Bash(awk -F: '$1>13000 && $1<13140')",
       "Bash(git commit -q -m 'Resources: fix old-art flash reappearing on page revisits *)",
-      "Bash(grep -n \"SignInPrompt\\\\` = engagement-triggered\" /Users/kyaw/Downloads/PassionPrj/CLAUDE.md)"
+      "Bash(grep -n \"SignInPrompt\\\\` = engagement-triggered\" /Users/kyaw/Downloads/PassionPrj/CLAUDE.md)",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}  dns=%{time_namelookup}s  connect=%{time_connect}s  tls=%{time_appconnect}s  total=%{time_total}s\\\\n\" --max-time 15 \"https://obtilhhnhaskhazcklky.supabase.co/auth/v1/health\")",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}  total=%{time_total}s\\\\n\" --max-time 15 \"https://obtilhhnhaskhazcklky.supabase.co/rest/v1/\")",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}  total=%{time_total}s\\\\n\" --max-time 15 \"https://voltzrobotics.com\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('disable_signup :', d.get\\('disable_signup'\\)\\); print\\('mailer_autoconfirm \\(email confirm NOT required if true\\):', d.get\\('mailer_autoconfirm'\\)\\); print\\('email enabled  :', d.get\\('external',{}\\).get\\('email'\\)\\); print\\('google enabled :', d.get\\('external',{}\\).get\\('google'\\)\\)\")",
+      "WebFetch(domain:resend.com)",
+      "Bash(curl -s --max-time 15 \"https://www.cloudflarestatus.com/api/v2/status.json\")",
+      "Bash(curl -s --max-time 15 \"https://www.cloudflarestatus.com/api/v2/incidents/unresolved.json\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); inc=d.get\\('incidents',[]\\); print\\('none'\\) if not inc else [print\\('-', i['name'], '|', i['status'], '|', i.get\\('impact'\\)\\) for i in inc]\")",
+      "Bash(curl -s --max-time 10 \"https://dns.google/resolve?name=voltzrobotics.com&type=CNAME\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('Status:', d.get\\('Status'\\), '\\(0 = OK\\)'\\); [print\\(' ->', a.get\\('data'\\)\\) for a in d.get\\('Answer',[]\\)]\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); s=d['status']; print\\('Cloudflare:', s['description'], '\\(' + s['indicator'] + '\\)'\\)\")",
+      "Bash(curl -s -o /dev/null -w \"dash.cloudflare.com status=%{http_code}\\\\n\" --max-time 15 \"https://dash.cloudflare.com\")",
+      "WebFetch(domain:vexforum.com)"
     ]
   }
 }
