@@ -242,7 +242,12 @@
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('Status:', d.get\\('Status'\\), '\\(0 = OK\\)'\\); [print\\(' ->', a.get\\('data'\\)\\) for a in d.get\\('Answer',[]\\)]\")",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); s=d['status']; print\\('Cloudflare:', s['description'], '\\(' + s['indicator'] + '\\)'\\)\")",
       "Bash(curl -s -o /dev/null -w \"dash.cloudflare.com status=%{http_code}\\\\n\" --max-time 15 \"https://dash.cloudflare.com\")",
-      "WebFetch(domain:vexforum.com)"
+      "WebFetch(domain:vexforum.com)",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}\\\\nredirects_to=%{redirect_url}\\\\n\" --max-time 15 \"https://obtilhhnhaskhazcklky.supabase.co/auth/v1/authorize?provider=google&redirect_to=https%3A%2F%2Fvoltzrobotics.com\")",
+      "Bash(perl -0pi -e 's/if \\\\\\(data\\\\.error\\\\\\) throw new Error\\\\\\(data\\\\.error\\\\.message\\\\\\);/if \\(data.error\\) throw new Error\\(typeof data.error === \"string\" ? data.error : \\(data.error.message || \"upstream_error\"\\)\\);/g' src/VexHub.jsx)",
+      "Bash(node --check ../backend/index.js)",
+      "Bash(node --check api/groq-chat.js)",
+      "Bash(node --input-type=module -e \"0\")"
     ]
   }
 }

@@ -2543,6 +2543,23 @@ int main() {
 
 // ---------- CODE LAB ----------
 const aiLog = createLogger("codelab");
+
+// Maps an AI-request failure to a message that is safe to SHOW a user.
+// The raw provider error must never reach the UI: it carries internal details
+// (org id, model name, token limits) and even a billing link to the owner's
+// account. The full error still goes to aiLog for diagnosis — this only
+// controls what's rendered in the chat bubble.
+function friendlyAiError(e) {
+  const raw = String(e?.message || e || "");
+  // `rate_limited` / `upstream_unreachable` are the sanitized codes our proxy
+  // returns; the wordier patterns catch a raw provider error if one ever
+  // reaches here (e.g. an older deployed proxy).
+  if (/rate_limited|rate limit|429|too many requests|tokens per minute|TPM/i.test(raw))
+    return "I'm getting a lot of questions right now — give me a few seconds and ask again.";
+  if (/upstream_unreachable|network|fetch|timeout|ECONN|Failed to fetch/i.test(raw))
+    return "I couldn't reach the AI service — check your connection and try again.";
+  return "Something went wrong on my end. Try asking again in a moment.";
+}
 function CodeLab() {
   const SANDBOX_STARTER = `#include <iostream>
 using namespace std;
@@ -3113,12 +3130,12 @@ ${code}
       });
 
       const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
+      if (data.error) throw new Error(typeof data.error === "string" ? data.error : (data.error.message || "upstream_error"));
       const reply = data.choices?.[0]?.message?.content || "No response.";
       setMessages(prev => [...prev, { role: "assistant", content: reply }]);
     } catch (e) {
-      aiLog.error("Voltz chat request failed", e?.message || e);
-      setMessages(prev => [...prev, { role: "assistant", content: `Sorry — I couldn't reach the AI service just now. ${e.message}` }]);
+      aiLog.error("Voltz chat request failed", e?.message || e); // full detail -> log only
+      setMessages(prev => [...prev, { role: "assistant", content: friendlyAiError(e) }]);
     } finally {
       setIsChatting(false);
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
@@ -13119,11 +13136,11 @@ Formatting rules (ALWAYS follow):
         }),
       });
       const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
+      if (data.error) throw new Error(typeof data.error === "string" ? data.error : (data.error.message || "upstream_error"));
       setMessages(prev => [...prev, { role: "assistant", content: data.choices[0].message.content }]);
     } catch (e) {
-      aiLog.error("FloatingChat request failed", e?.message || e);
-      setMessages(prev => [...prev, { role: "assistant", content: `Hmm, something went wrong: ${e.message}` }]);
+      aiLog.error("FloatingChat request failed", e?.message || e); // full detail -> log only
+      setMessages(prev => [...prev, { role: "assistant", content: friendlyAiError(e) }]);
     } finally {
       setLoading(false);
     }

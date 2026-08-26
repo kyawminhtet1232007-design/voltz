@@ -29,8 +29,21 @@ export default async function handler(req, res) {
       body: JSON.stringify({ model, messages, max_tokens, temperature }),
     });
     const data = await response.json();
-    return res.status(response.ok ? 200 : response.status).json(data);
+    if (!response.ok) {
+      // Never forward the provider's error body to the browser: it contains
+      // the org id, model name, token limits and a billing link to OUR
+      // account. Log it server-side (visible in Vercel function logs) and
+      // return only a status code + generic message the client can map to
+      // friendly copy. 429 is preserved so the UI can say "try again shortly".
+      console.error("[groq-chat] upstream error", response.status, JSON.stringify(data).slice(0, 500));
+      const isRateLimit = response.status === 429;
+      return res.status(response.status).json({
+        error: isRateLimit ? "rate_limited" : "upstream_error",
+      });
+    }
+    return res.status(200).json(data);
   } catch (err) {
-    return res.status(500).json({ error: "Failed to reach Groq API" });
+    console.error("[groq-chat] fetch failed", err?.message);
+    return res.status(502).json({ error: "upstream_unreachable" });
   }
 }

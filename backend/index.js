@@ -281,10 +281,19 @@ app.post('/groq-chat', async (req, res) => {
       body: JSON.stringify({ model: GROQ_MODEL, messages, max_tokens, temperature }),
     });
     const data = await response.json();
+    if (!response.ok) {
+      // Mirrors frontend/api/groq-chat.js: never forward the provider's error
+      // body to the browser (it leaks the org id, model, limits and a billing
+      // link to our account). Log server-side; return status + generic code.
+      console.error('[groq-chat] upstream error', response.status, JSON.stringify(data).slice(0, 500));
+      return res.status(response.status).json({
+        error: response.status === 429 ? 'rate_limited' : 'upstream_error',
+      });
+    }
     res.json(data);
   } catch (err) {
     console.error('Groq proxy error:', err);
-    res.status(500).json({ error: 'Failed to reach Groq API' });
+    res.status(502).json({ error: 'upstream_unreachable' });
   }
 });
 
