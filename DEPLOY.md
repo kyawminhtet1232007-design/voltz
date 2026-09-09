@@ -86,6 +86,9 @@ Replace the link with:
 
 (`type=recovery` for the reset-password template.)
 
+`type=signup` and `type=email` both verify a confirmation token, and Supabase's
+own docs use them interchangeably — `AuthProvider` tries both, so either works.
+
 Why this matters: the client runs the **PKCE** flow, whose `?code=` exchange needs
 a `code_verifier` stored in the localStorage of the browser that *started* the
 flow. People routinely open the confirmation mail somewhere else — the Gmail app's

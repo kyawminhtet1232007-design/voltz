@@ -326,10 +326,27 @@ function AuthProvider({ children }) {
 
     if (tokenHash && otpType && !emailLinkHandled) {
       emailLinkHandled = true;
-      sb.auth.verifyOtp({ token_hash: tokenHash, type: otpType })
-        .then(({ data, error }) => {
+      // A signup confirmation token verifies under either "signup" or "email",
+      // and Supabase's own docs use the two interchangeably — so accept whatever
+      // the email template was written with rather than making the template the
+      // single point of failure. A wrong type is a lookup miss, not a redemption,
+      // so the token survives the first attempt and the retry can still use it.
+      const typesToTry = otpType === "signup" ? ["signup", "email"]
+        : otpType === "email" ? ["email", "signup"]
+        : [otpType];
+      const attempt = async () => {
+        let last;
+        for (const type of typesToTry) {
+          last = await sb.auth.verifyOtp({ token_hash: tokenHash, type });
+          if (!last.error) return { ...last, type };
+          authLog.debug("verifyOtp attempt failed", { type, msg: last.error.message });
+        }
+        return { ...last, type: typesToTry[typesToTry.length - 1] };
+      };
+      attempt()
+        .then(({ data, error, type }) => {
           if (error) {
-            authLog.warn("verifyOtp failed", { type: otpType, msg: error.message });
+            authLog.warn("verifyOtp failed", { tried: typesToTry, msg: error.message });
             notify("That link didn't work. Request a new one and try again.", { level: "error" });
             settle(null);
             return;
@@ -338,7 +355,7 @@ function AuthProvider({ children }) {
           // link verified this way would drop them straight into the app
           // instead of the "set a new password" gate. Flip it ourselves.
           if (otpType === "recovery") setPasswordRecovery(true);
-          authLog.info("signed in from email link", { type: otpType });
+          authLog.info("signed in from email link", { type });
           settle(data?.session ?? null);
         })
         .catch((e) => { authLog.warn("verifyOtp threw", { msg: e?.message }); settle(null); })
