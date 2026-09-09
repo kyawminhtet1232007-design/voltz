@@ -4352,34 +4352,38 @@ function Home({ setCurrentPage }) {
               Everything You Need to Succeed in VEX
             </p>
 
-            {/* Each word gets its own plate — graphite for the first three, brand
-                red on the payoff, so the sequence still builds to "Win" instead
-                of painting the whole line red (this block already carries a red
-                eyebrow above and a red rule below). Plate padding/radius are in
-                em so they track the responsive font size; the h2 IS the flex row
-                so the plates wrap and stay centred on narrow screens. A grey→red
-                tone ramp was tried here first and reverted — across four words
-                the grey steps were indistinguishable and read as disabled. */}
-            {/* aria-label because flex items carry no whitespace between them —
-                without it the accessible name (and a copy-paste) comes out as
-                the single run-on token "LearnDesignCompeteWin". */}
+            {/* Four words separated by hairline rules — editorial, no punctuation.
+                Plain spaces made the line scan as one run-on phrase and commas
+                read as inventory; the rules divide without adding voice. Earlier
+                attempts here and why they went: a grey→red tone ramp (the grey
+                steps were indistinguishable across four words and read as
+                disabled) and solid word plates (four black slabs carried far too
+                much mass above the card grid).
+                aria-label because flex items carry no whitespace between them —
+                without it the accessible name, and any copy-paste, comes out as
+                the run-on token "LearnDesignCompeteWin". */}
+            {/* Fluid size rather than breakpoint steps: at a fixed size the line
+                wrapped on phones and stranded a separator at the end of row one,
+                which reads as a stray tick mark. clamp() keeps all four words and
+                three rules on ONE line from 320px up, capped at the 48px design
+                size. flex-wrap stays on purely as a safety valve — if a font
+                substitution ever makes it overflow it wraps instead of forcing
+                the page to scroll sideways. */}
             <h2
               aria-label="Learn Design Compete Win"
-              className="text-4xl sm:text-5xl font-black flex flex-wrap justify-center gap-2 sm:gap-3"
+              className="font-black flex flex-wrap items-center justify-center gap-y-1"
+              style={{ color: "#1d1d1f", fontSize: "clamp(1rem, 5vw, 3rem)", columnGap: "0.35em" }}
             >
               {["Learn", "Design", "Compete", "Win"].map((word, i) => (
-                <span
-                  key={word}
-                  style={{
-                    background: i === 3 ? "#dc2626" : "#1d1d1f",
-                    color: "#ffffff",
-                    padding: "0.1em 0.34em",
-                    borderRadius: "0.22em",
-                    lineHeight: 1.15,
-                  }}
-                >
-                  {word}
-                </span>
+                <React.Fragment key={word}>
+                  {i > 0 && (
+                    <span
+                      aria-hidden="true"
+                      style={{ width: 2, height: "0.6em", background: "#d2d2d7", borderRadius: 1 }}
+                    />
+                  )}
+                  <span>{word}</span>
+                </React.Fragment>
               ))}
             </h2>
 
