@@ -252,6 +252,13 @@ const AuthCtx = React.createContext(null);
 // ErrorBoundary's "Copy diagnostics" exposes.
 const authLog = createLogger("auth");
 
+// An email link's token is single-use, and the params sit in the URL for the
+// whole page load — so without a guard React StrictMode's double-invoked effect
+// (dev) or any remount verifies it twice: the first call consumes the token and
+// the second is rejected, surfacing a bogus "that link didn't work" on top of a
+// perfectly good sign-in. Module scope, so it survives remounts within a load.
+let emailLinkHandled = false;
+
 function AuthProvider({ children }) {
   const [user, setUser]               = React.useState(null);
   const [authLoading, setAuthLoading] = React.useState(true);
@@ -275,12 +282,75 @@ function AuthProvider({ children }) {
       setUser(session?.user ?? null);
       setAuthLoading(false);
     };
-    sb.auth.getSession()
-      .then(({ data: { session }, error }) => {
-        if (error) authLog.warn("getSession failed — treating as signed out", { msg: error.message });
-        settle(session);
-      })
-      .catch((e) => { authLog.warn("getSession threw", { msg: e?.message }); settle(null); });
+    // ── Email-link landings ────────────────────────────────────────────────
+    // Confirmation and recovery links are very often opened in a DIFFERENT
+    // browser from the one that started the flow: the Gmail/Outlook app's
+    // in-app browser, or a desktop click after signing up on a phone. Our PKCE
+    // `?code=` exchange cannot work there — the code_verifier it needs lives in
+    // the originating browser's localStorage — so those links used to land
+    // silently signed out, which is exactly the "I had to log in again after
+    // signing up" symptom. A `token_hash` link carries no such dependency, so
+    // verify it directly and a session is created wherever it's opened.
+    // (Needs the Supabase email templates to use {{ .TokenHash }} — see the
+    // note in DEPLOY.md; harmless no-op until then.)
+    const params = new URLSearchParams(window.location.search);
+    // Supabase reports link failures (expired/already-used) in the hash on some
+    // flows and the query string on others — check both.
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const linkError = params.get("error_code") || params.get("error")
+      || hashParams.get("error_code") || hashParams.get("error");
+    const linkErrorDesc = params.get("error_description") || hashParams.get("error_description") || "";
+    const tokenHash = params.get("token_hash");
+    const otpType   = params.get("type");
+
+    // Strip auth noise from the address bar so a refresh can't replay a
+    // one-time token (Supabase rejects the replay, which would read to the user
+    // as a second, spurious failure).
+    const cleanAuthUrl = () => {
+      ["token_hash", "type", "error", "error_code", "error_description"].forEach((k) => params.delete(k));
+      const qs = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    };
+
+    if (linkError && !emailLinkHandled) {
+      emailLinkHandled = true;
+      authLog.warn("auth email link rejected", { code: linkError, desc: linkErrorDesc });
+      notify(
+        /expired/i.test(linkError + linkErrorDesc)
+          ? "That link has expired. Request a new one and try again."
+          : "That link didn't work. Request a new one and try again.",
+        { level: "error" }
+      );
+      cleanAuthUrl();
+    }
+
+    if (tokenHash && otpType && !emailLinkHandled) {
+      emailLinkHandled = true;
+      sb.auth.verifyOtp({ token_hash: tokenHash, type: otpType })
+        .then(({ data, error }) => {
+          if (error) {
+            authLog.warn("verifyOtp failed", { type: otpType, msg: error.message });
+            notify("That link didn't work. Request a new one and try again.", { level: "error" });
+            settle(null);
+            return;
+          }
+          // verifyOtp emits SIGNED_IN, not PASSWORD_RECOVERY — so a recovery
+          // link verified this way would drop them straight into the app
+          // instead of the "set a new password" gate. Flip it ourselves.
+          if (otpType === "recovery") setPasswordRecovery(true);
+          authLog.info("signed in from email link", { type: otpType });
+          settle(data?.session ?? null);
+        })
+        .catch((e) => { authLog.warn("verifyOtp threw", { msg: e?.message }); settle(null); })
+        .finally(cleanAuthUrl);
+    } else {
+      sb.auth.getSession()
+        .then(({ data: { session }, error }) => {
+          if (error) authLog.warn("getSession failed — treating as signed out", { msg: error.message });
+          settle(session);
+        })
+        .catch((e) => { authLog.warn("getSession threw", { msg: e?.message }); settle(null); });
+    }
     const restoreTimeout = setTimeout(() => {
       if (!settled) { authLog.warn("Session restore timed out — continuing signed out"); settle(null); }
     }, 8000);
@@ -3705,6 +3775,13 @@ function AuthModal({ onClose, defaultEmail = "" }) {
           return;
         }
         if (error) { setErr(error.message); return; }
+        // Whether sign-up returns a session depends on ONE Supabase project
+        // setting: with "Confirm email" off, GoTrue signs them in immediately
+        // and data.session is populated — showing "check your email" then
+        // would be a lie AND would hide the fact that they're already in.
+        // With it on there's no session until they click the emailed link.
+        // Branch on the response rather than assuming either config.
+        if (data?.session) { onClose(); return; }
         setDone(true);
       }
     } catch (e) {

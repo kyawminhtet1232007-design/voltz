@@ -75,6 +75,38 @@ proves the serverless proxy works.
 (not just test users) can sign in. Basic email/profile scopes don't need Google's
 verification review.
 
+### Email templates — use `{{ .TokenHash }}`, not `{{ .ConfirmationURL }}`
+
+**Supabase → Authentication → Emails → Confirm signup** (and **Reset password**).
+Replace the link with:
+
+```html
+<a href="{{ .SiteURL }}/?token_hash={{ .TokenHash }}&type=signup">Confirm your email</a>
+```
+
+(`type=recovery` for the reset-password template.)
+
+Why this matters: the client runs the **PKCE** flow, whose `?code=` exchange needs
+a `code_verifier` stored in the localStorage of the browser that *started* the
+flow. People routinely open the confirmation mail somewhere else — the Gmail app's
+in-app browser, or a desktop click after signing up on a phone — and there the
+exchange cannot work, so they land signed out and have to log in manually. A
+`token_hash` link has no such dependency: `AuthProvider` calls `verifyOtp()` with
+it and a session is created wherever the link is opened.
+
+### Whether sign-up signs people in immediately
+
+**Supabase → Authentication → Sign In / Providers → Confirm email.**
+
+- **On** (current setting): `signUp` returns **no session**. The user gets a
+  "check your email" screen and is only signed in once they click the link. Best
+  for keeping fake addresses out.
+- **Off**: `signUp` returns a session and they're signed in on the spot, no email
+  round-trip. Fewer people drop out of sign-up; unverified addresses get in.
+
+The app handles both — `AuthModal` branches on whether a session came back, so
+flipping this setting needs no code change.
+
 ## 5. Apply the Supabase migrations (SQL Editor → run each)
 
 - `supabase/migrations/20260810_analytics.sql` — visitor counter.
