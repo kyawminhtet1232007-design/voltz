@@ -4352,14 +4352,35 @@ function Home({ setCurrentPage }) {
               Everything You Need to Succeed in VEX
             </p>
 
-            {/* The four words run on if left as plain text, and commas make them
-                read as a list of nouns rather than a sequence — so the accent
-                does the work instead: everything dark, "Win" in brand red as the
-                payoff. (A four-step grey→red tone ramp was tried and reverted:
-                across only four words the grey steps were indistinguishable and
-                the faded words read as disabled rather than as a build-up.) */}
-            <h2 className="text-5xl font-black text-gray-900">
-              Learn Design Compete <span style={{ color: "#dc2626" }}>Win</span>
+            {/* Each word gets its own plate — graphite for the first three, brand
+                red on the payoff, so the sequence still builds to "Win" instead
+                of painting the whole line red (this block already carries a red
+                eyebrow above and a red rule below). Plate padding/radius are in
+                em so they track the responsive font size; the h2 IS the flex row
+                so the plates wrap and stay centred on narrow screens. A grey→red
+                tone ramp was tried here first and reverted — across four words
+                the grey steps were indistinguishable and read as disabled. */}
+            {/* aria-label because flex items carry no whitespace between them —
+                without it the accessible name (and a copy-paste) comes out as
+                the single run-on token "LearnDesignCompeteWin". */}
+            <h2
+              aria-label="Learn Design Compete Win"
+              className="text-4xl sm:text-5xl font-black flex flex-wrap justify-center gap-2 sm:gap-3"
+            >
+              {["Learn", "Design", "Compete", "Win"].map((word, i) => (
+                <span
+                  key={word}
+                  style={{
+                    background: i === 3 ? "#dc2626" : "#1d1d1f",
+                    color: "#ffffff",
+                    padding: "0.1em 0.34em",
+                    borderRadius: "0.22em",
+                    lineHeight: 1.15,
+                  }}
+                >
+                  {word}
+                </span>
+              ))}
             </h2>
 
             <div className="w-28 h-1 bg-red-600 mx-auto mt-5 rounded-full"></div>
