@@ -4360,28 +4360,41 @@ function Home({ setCurrentPage }) {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8" data-reveal="stagger">
+            {/* Each card is a shortcut into the matching slice of the curriculum:
+                the first three open Lessons pre-filtered to a category, the last
+                jumps straight into the Competition Strategy lesson (Strategy is
+                already covered by the card beside it). See `navigate` in
+                VexLearningHubInner for how the deep-link is carried across. */}
             <FeatureCard
               icon="💻"
               title="Learn to Code"
               description="Master VEXcode C++ with step-by-step lessons and real examples."
+              cta="View coding lessons"
+              onClick={() => setCurrentPage("lessons", { cat: "Coding" })}
             />
 
             <FeatureCard
               icon="🔧"
               title="Design Robots"
               description="Explore mechanisms, CAD systems, and robot engineering."
+              cta="View engineering lessons"
+              onClick={() => setCurrentPage("lessons", { cat: "Engineering" })}
             />
 
             <FeatureCard
               icon="👥"
               title="Team Strategy"
               description="Improve communication, match strategy, and teamwork."
+              cta="View strategy lessons"
+              onClick={() => setCurrentPage("lessons", { cat: "Strategy" })}
             />
 
             <FeatureCard
               icon="🏆"
               title="Compete & Win"
               description="Use advanced strategies to dominate competitions."
+              cta="Start the lesson"
+              onClick={() => setCurrentPage("lessons", { lesson: "Competition Strategy" })}
             />
           </div>
         </div>
@@ -4390,13 +4403,25 @@ function Home({ setCurrentPage }) {
   );
 }
 
-function FeatureCard({ icon, title, description }) {
+// Clickable home feature card. `onClick` deep-links into the curriculum; `cta`
+// is the affordance line so it reads as a link, not a static tile. Rendered as a
+// <button> (not a div with onClick) so it's keyboard- and screen-reader-reachable.
+function FeatureCard({ icon, title, description, cta = "Explore", onClick }) {
   return (
-    <div className="bg-white p-8 rounded-3xl border border-gray-100 hover:-translate-y-2 hover:shadow-2xl transition duration-300">
+    <button
+      type="button"
+      onClick={onClick}
+      className="group w-full h-full text-left flex flex-col bg-white p-8 rounded-3xl border border-gray-100 hover:-translate-y-2 hover:shadow-2xl transition duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
+    >
       <h3 className="text-2xl font-bold text-gray-900 mb-3">{title}</h3>
 
       <p className="text-gray-600 leading-relaxed">{description}</p>
-    </div>
+
+      <span className="mt-auto pt-6 text-sm font-semibold inline-flex items-center gap-1.5 text-red-600">
+        {cta}
+        <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+      </span>
+    </button>
   );
 }
 
@@ -4795,9 +4820,18 @@ const LESSON_META = {
 };
 const LESSON_CATS = ["All Lessons", "Coding", "Engineering", "Strategy", "Hardware"];
 
-function Lessons() {
-  const [selected, setSelected] = useState(null);
-  const [cat, setCat] = useState("All Lessons");
+// `jump` = an optional deep-link from Home's feature cards: `{ cat }` pre-selects
+// a category filter, `{ lesson }` opens that lesson's detail immediately. Read
+// once as initial state — VexLearningHubInner remounts Lessons on every
+// navigation to it (lessonsNonce), so a fresh jump always takes effect, and a
+// plain nav-tab click (jump = null) lands on the unfiltered overview as before.
+function Lessons({ jump }) {
+  const [selected, setSelected] = useState(
+    () => (jump?.lesson ? lessons.find((l) => l.title === jump.lesson) || null : null)
+  );
+  const [cat, setCat] = useState(
+    () => (jump?.cat && LESSON_CATS.includes(jump.cat) ? jump.cat : "All Lessons")
+  );
   const { store } = useStore();
   const overviewRef = useRef(null);
 
@@ -13303,6 +13337,9 @@ function VexLearningHubInner() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalEmail, setAuthModalEmail] = useState(""); // pre-fill, e.g. after a password reset
   const [lessonsNonce, setLessonsNonce] = useState(0);
+  // Deep-link payload for the next Lessons mount ({ cat } or { lesson }) — set by
+  // navigate() when Home's feature cards send us there, null for a plain nav click.
+  const [lessonJump, setLessonJump] = useState(null);
   // True for the brief window between "OAuth returned on the wrong tab" and
   // "signed back out + modal reopened" — see the effect below. Renders a full
   // veil in place of the whole app so the Nav never flashes signed-in.
@@ -13389,14 +13426,20 @@ function VexLearningHubInner() {
   // heavy page (CodeLab's Monaco editor, CAD's three.js) is mounting. We surface
   // that as a branded loader so the click feels responsive instead of frozen.
   const [isPending, startTransition] = React.useTransition();
-  const navigate = (page) => {
+  const navigate = (page, opts) => {
     setNavPage(page);
     startTransition(() => {
       // Clicking "Lessons" always returns to the lesson overview. Lessons keeps an
       // internal selected-lesson state, and re-clicking the tab while already on it
       // wouldn't change currentPage — so bump a key to remount Lessons and drop the
       // open lesson detail.
-      if (page === "lessons") setLessonsNonce((n) => n + 1);
+      if (page === "lessons") {
+        // Home's feature cards deep-link into the curriculum via opts:
+        // { cat } pre-filters, { lesson } opens that lesson. Cleared on a plain
+        // nav-tab click so the tab keeps landing on the full, unfiltered list.
+        setLessonJump(opts && (opts.cat || opts.lesson) ? opts : null);
+        setLessonsNonce((n) => n + 1);
+      }
       setCurrentPage(page);
     });
   };
@@ -13455,7 +13498,7 @@ function VexLearningHubInner() {
 
       <PageTransition pageKey={currentPage}>
         {currentPage === "home"      && <Home setCurrentPage={navigate} />}
-        {currentPage === "lessons"   && <Lessons key={lessonsNonce} />}
+        {currentPage === "lessons"   && <Lessons key={lessonsNonce} jump={lessonJump} />}
         {currentPage === "codelab"   && <CodeLab />}
         {currentPage === "cad"       && <CAD />}
         {currentPage === "dashboard" && <Dashboard />}
