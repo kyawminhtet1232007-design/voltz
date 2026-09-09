@@ -4369,7 +4369,6 @@ function Home({ setCurrentPage }) {
               icon="💻"
               title="Learn to Code"
               description="Master VEXcode C++ with step-by-step lessons and real examples."
-              cta="View coding lessons"
               onClick={() => setCurrentPage("lessons", { cat: "Coding" })}
             />
 
@@ -4377,7 +4376,6 @@ function Home({ setCurrentPage }) {
               icon="🔧"
               title="Design Robots"
               description="Explore mechanisms, CAD systems, and robot engineering."
-              cta="View engineering lessons"
               onClick={() => setCurrentPage("lessons", { cat: "Engineering" })}
             />
 
@@ -4385,7 +4383,6 @@ function Home({ setCurrentPage }) {
               icon="👥"
               title="Team Strategy"
               description="Improve communication, match strategy, and teamwork."
-              cta="View strategy lessons"
               onClick={() => setCurrentPage("lessons", { cat: "Strategy" })}
             />
 
@@ -4393,7 +4390,6 @@ function Home({ setCurrentPage }) {
               icon="🏆"
               title="Compete & Win"
               description="Use advanced strategies to dominate competitions."
-              cta="Start the lesson"
               onClick={() => setCurrentPage("lessons", { lesson: "Competition Strategy" })}
             />
           </div>
@@ -4403,24 +4399,20 @@ function Home({ setCurrentPage }) {
   );
 }
 
-// Clickable home feature card. `onClick` deep-links into the curriculum; `cta`
-// is the affordance line so it reads as a link, not a static tile. Rendered as a
-// <button> (not a div with onClick) so it's keyboard- and screen-reader-reachable.
-function FeatureCard({ icon, title, description, cta = "Explore", onClick }) {
+// Clickable home feature card — visually the original title + description tile
+// (no CTA line, user request), just wired to deep-link into the curriculum.
+// Rendered as a <button> rather than a div with onClick so it stays keyboard-
+// and screen-reader-reachable; the focus ring is the only added affordance.
+function FeatureCard({ icon, title, description, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group w-full h-full text-left flex flex-col bg-white p-8 rounded-3xl border border-gray-100 hover:-translate-y-2 hover:shadow-2xl transition duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
+      className="w-full h-full text-left bg-white p-8 rounded-3xl border border-gray-100 hover:-translate-y-2 hover:shadow-2xl transition duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
     >
       <h3 className="text-2xl font-bold text-gray-900 mb-3">{title}</h3>
 
       <p className="text-gray-600 leading-relaxed">{description}</p>
-
-      <span className="mt-auto pt-6 text-sm font-semibold inline-flex items-center gap-1.5 text-red-600">
-        {cta}
-        <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
-      </span>
     </button>
   );
 }
