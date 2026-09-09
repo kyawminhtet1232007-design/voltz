@@ -4352,17 +4352,14 @@ function Home({ setCurrentPage }) {
               Everything You Need to Succeed in VEX
             </p>
 
-            {/* Tone ramp: the four words darken left to right and land on brand
-                red, so the sequence reads as a build-up instead of a flat list
-                (plain spaces scanned as one run-on phrase, and commas made it
-                read as inventory). Greys are the page's own #6e6e73/#1d1d1f
-                pair plus a lighter #86868b step — all four clear WCAG AA for
-                large text (3:1) against this section's gray-50 background. */}
-            <h2 className="text-5xl font-black">
-              <span style={{ color: "#86868b" }}>Learn</span>{" "}
-              <span style={{ color: "#6e6e73" }}>Design</span>{" "}
-              <span style={{ color: "#1d1d1f" }}>Compete</span>{" "}
-              <span style={{ color: "#dc2626" }}>Win</span>
+            {/* The four words run on if left as plain text, and commas make them
+                read as a list of nouns rather than a sequence — so the accent
+                does the work instead: everything dark, "Win" in brand red as the
+                payoff. (A four-step grey→red tone ramp was tried and reverted:
+                across only four words the grey steps were indistinguishable and
+                the faded words read as disabled rather than as a build-up.) */}
+            <h2 className="text-5xl font-black text-gray-900">
+              Learn Design Compete <span style={{ color: "#dc2626" }}>Win</span>
             </h2>
 
             <div className="w-28 h-1 bg-red-600 mx-auto mt-5 rounded-full"></div>
